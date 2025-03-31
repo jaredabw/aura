@@ -419,11 +419,17 @@ async def logging(interaction: discord.Interaction, channel: discord.TextChannel
     if channel is not None:
         try:
             await channel.send("Aura logging enabled.")
+            if guilds[guild_id].log_channel_id is not None:
+                await interaction.response.send_message(f"Logging moved to in {channel.mention}. Logs will be sent every 10 seconds.")
+            else:
+                await interaction.response.send_message(f"Logging enabled in {channel.mention}. Logs will be sent every 10 seconds.")
             guilds[guild_id].log_channel_id = channel.id
-            await interaction.response.send_message(f"Logging enabled in {channel.mention}. Logs will be sent every 10 seconds.")
         except discord.Forbidden:
             await interaction.response.send_message("I don't have permission to send messages in that channel. Please choose a different channel or update my permissions.")
     else:
+        if guilds[guild_id].log_channel_id is None:
+            await interaction.response.send_message("Logging is already disabled.")
+            return
         guilds[guild_id].log_channel_id = None
         await interaction.response.send_message("Logging disabled.")
     update_time_and_save(guild_id, guilds)
