@@ -17,7 +17,7 @@ class User:
 
 @dataclass
 class EmojiReaction:
-    delta: int = 0
+    points: int = 0
 
 @dataclass
 class Guild:
@@ -35,7 +35,7 @@ def load_data(filename="data.json"):
             guilds: dict[int, Guild] = {}
             for guild_id, guild in raw_data.get("guilds", {}).items():
                 users = {int(user_id): User(aura=data["aura"]) for user_id, data in guild.get("users", {}).items()}
-                reactions = {emoji: EmojiReaction(delta=data["delta"]) for emoji, data in guild.get("reactions", {}).items()}
+                reactions = {emoji: EmojiReaction(points=data["points"]) for emoji, data in guild.get("reactions", {}).items()}
                 guilds[int(guild_id)] = Guild(
                     users=users,
                     reactions=reactions,
@@ -70,7 +70,7 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
             guild_data["users"][str(user_id)] = {"aura": user.aura}
         
         for emoji, reaction in guild.reactions.items():
-            guild_data["reactions"][emoji] = {"delta": reaction.delta}
+            guild_data["reactions"][emoji] = {"points": reaction.points}
 
         save_data["guilds"][guild_id] = guild_data
     #
@@ -111,7 +111,7 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
         if emoji in guilds[guild_id].reactions:
             if author_id not in guilds[guild_id].users:
                 guilds[guild_id].users[author_id] = User()
-            guilds[guild_id].users[author_id].aura += guilds[guild_id].reactions[emoji].delta
+            guilds[guild_id].users[author_id].aura += guilds[guild_id].reactions[emoji].points
             update_time_and_save(guild_id, guilds)
 
 # need to add pagination/multiple embeds
@@ -138,14 +138,14 @@ def get_emoji_list(guild_id: int) -> discord.Embed:
     embed.set_author(name=f"🔧 {client.get_guild(guild_id).name} Emoji List")
     embed.description = ""
 
-    emojis = sorted(guilds[guild_id].reactions.items(), key=lambda item: item[1].delta, reverse=True)
+    emojis = sorted(guilds[guild_id].reactions.items(), key=lambda item: item[1].points, reverse=True)
 
     gap = False
     for emoji, reaction in emojis:
-        if reaction.delta < 0 and not gap:
+        if reaction.points < 0 and not gap:
             embed.description += "---------\n"
             gap = True
-        embed.description += f"{emoji} **{'+' if reaction.delta > 0 else ''}{reaction.delta}**\n"
+        embed.description += f"{emoji} **{'+' if reaction.points > 0 else ''}{reaction.points}**\n"
 
     return embed
 
@@ -187,8 +187,8 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
         guilds[guild_id] = Guild()
         guilds[guild_id].last_update = int(time.time())
         guilds[guild_id].reactions = {
-            "🔥": EmojiReaction(delta=1),
-            "💀": EmojiReaction(delta=-1)
+            "🔥": EmojiReaction(points=1),
+            "💀": EmojiReaction(points=-1)
         }
 
         if channel is not None:
@@ -254,22 +254,22 @@ def is_valid_unicode_emoji(emoji: str) -> bool:
 
 @emoji_group.command(name="add", description="Add an emoji to tracking.")
 @app_commands.checks.has_permissions(manage_channels=True)
-@app_commands.describe(emoji="The emoji to start tracking.", delta="The delta value for the emoji.")
-async def add_emoji(interaction: discord.Interaction, emoji: str, delta: int):
+@app_commands.describe(emoji="The emoji to start tracking.", points="The points impact for the emoji. Positive or negative.")
+async def add_emoji(interaction: discord.Interaction, emoji: str, points: int):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
 
     if emoji in guilds[guild_id].reactions:
-        await interaction.response.send_message("This emoji is already being tracked. Use </emoji update:1356180634602700863> to update the delta or </emoji remove:1356180634602700863> to remove it.")
+        await interaction.response.send_message("This emoji is already being tracked. Use </emoji update:1356180634602700863> to update its points or </emoji remove:1356180634602700863> to remove it.")
         return
     
     if is_valid_unicode_emoji(emoji) or discord.utils.get(interaction.guild.emojis, id=int(emoji.split(":")[2][:-1])):
-        guilds[guild_id].reactions[emoji] = EmojiReaction(delta=delta)
+        guilds[guild_id].reactions[emoji] = EmojiReaction(points=points)
         update_time_and_save(guild_id, guilds)
         await update_info(guild_id)
-        await interaction.response.send_message(f"Emoji {emoji} added to tracking with delta {'+' if delta > 0 else ''}{delta}.")
+        await interaction.response.send_message(f"Emoji {emoji} added: worth {'+' if points > 0 else ''}{points} points.")
     else:
         await interaction.response.send_message("This emoji is not from this server.")
         return
@@ -292,10 +292,10 @@ async def remove_emoji(interaction: discord.Interaction, emoji: str):
     await update_info(guild_id)
     await interaction.response.send_message(f"Emoji {emoji} removed from tracking.")
 
-@emoji_group.command(name="update", description="Update the delta of an emoji.")
+@emoji_group.command(name="update", description="Update the points of an emoji.")
 @app_commands.checks.has_permissions(manage_channels=True)
-@app_commands.describe(emoji="The emoji to update.", delta="The new delta value.")
-async def update_emoji(interaction: discord.Interaction, emoji: str, delta: int):
+@app_commands.describe(emoji="The emoji to update.", points="The new points impact for the emoji. Positive or negative.")
+async def update_emoji(interaction: discord.Interaction, emoji: str, points: int):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
@@ -305,10 +305,10 @@ async def update_emoji(interaction: discord.Interaction, emoji: str, delta: int)
         await interaction.response.send_message("This emoji is not being tracked yet. Use </emoji add:1356180634602700863> to add it.")
         return
     
-    guilds[guild_id].reactions[emoji].delta = delta
+    guilds[guild_id].reactions[emoji].points = points
     update_time_and_save(guild_id, guilds)
     await update_info(guild_id)
-    await interaction.response.send_message(f"Emoji {emoji} updated with new delta {delta}.")
+    await interaction.response.send_message(f"Emoji {emoji} updated: worth {points} points.")
 
 @emoji_group.command(name="list", description="List the emojis being tracked in this server.")
 async def list_emoji(interaction: discord.Interaction):
