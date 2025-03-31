@@ -98,7 +98,8 @@ async def on_ready():
     await tree.sync()
 
     await client.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="for aura changes"))
-    update_leaderboards.start()
+    if not update_leaderboards.is_running():
+        update_leaderboards.start()
     print(f"Logged in as {client.user}")
 
 @client.event
