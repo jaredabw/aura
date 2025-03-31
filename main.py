@@ -156,6 +156,17 @@ async def update_leaderboards():
                     except discord.NotFound:
                         pass
 
+async def update_info(guild_id: int):
+    guild = guilds[guild_id]
+    if guild.msgs_channel_id is not None:
+        channel = client.get_channel(guild.msgs_channel_id)
+        if channel is not None:
+            try:
+                info_msg = await channel.fetch_message(guild.info_msg_id)
+                await info_msg.edit(embed=get_emoji_list(guild_id))
+            except Exception:
+                pass
+
 @tree.command(name="setup", description="Setup the bot. (Optional) Displays the leaderboard in the given channel.")
 @app_commands.checks.has_permissions(manage_channels=True)
 @app_commands.describe(channel="The channel to display the leaderboard in.")
@@ -176,7 +187,7 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
             await interaction.response.send_message(f"Setup complete. Leaderboard will be displayed in {channel.mention} or run </leaderboard:1356146448244146209>. Next, add emojis to track using </emoji add:1356150986422620301>.")
             return
         else:
-            await interaction.response.send_message(f"Setup complete. Run </leaderboard:1356146448244146209> to display leaderboard. Next, add emojis to track using </emoji add:1356150986422620301>.")
+            await interaction.response.send_message(f"Setup complete. Run </leaderboard:1356146448244146209> to display leaderboard and </emoji list:1356150986422620301> to see tracked emojis. Next, add emojis to track using </emoji add:1356150986422620301>.")
             return
     except discord.Forbidden:
         await interaction.response.send_message("I don't have permission to send messages in that channel. Please choose a different channel or update my permissions.")
@@ -206,7 +217,7 @@ async def delete(interaction: discord.Interaction):
         await interaction.response.send_message("Please run </setup:1356146448244146206> first.")
         return
 
-    await (client.get_user(355938178265251842)).send(f"Guild {guild_id} data was deleted. Data as follows:\n\n```{json.dumps(guilds[guild_id], default=lambda o: o.__dict__, indent=4)}```")
+    await (client.get_user(355938178265251842)).send(f"Guild {guild_id} data was deleted. Data as follows:\n\n```{json.dumps({str(guild_id): guilds[guild_id]}, default=lambda o: o.__dict__, indent=4)}```")
     del guilds[guild_id]
 
     save_data(guilds)
@@ -244,6 +255,7 @@ async def add_emoji(interaction: discord.Interaction, emoji: str, delta: int):
     if is_valid_unicode_emoji(emoji) or discord.utils.get(interaction.guild.emojis, id=int(emoji.split(":")[2][:-1])):
         guilds[guild_id].reactions[emoji] = EmojiReaction(delta=delta)
         update_time_and_save(guild_id, guilds)
+        await update_info(guild_id)
         await interaction.response.send_message(f"Emoji {emoji} added to tracking with delta {'+' if delta > 0 else ''}{delta}.")
     else:
         await interaction.response.send_message("This emoji is not from this server.")
@@ -264,6 +276,7 @@ async def remove_emoji(interaction: discord.Interaction, emoji: str):
     
     del guilds[guild_id].reactions[emoji]
     update_time_and_save(guild_id, guilds)
+    await update_info(guild_id)
     await interaction.response.send_message(f"Emoji {emoji} removed from tracking.")
 
 @emoji_group.command(name="update", description="Update the delta of an emoji.")
@@ -281,6 +294,7 @@ async def update_emoji(interaction: discord.Interaction, emoji: str, delta: int)
     
     guilds[guild_id].reactions[emoji].delta = delta
     update_time_and_save(guild_id, guilds)
+    await update_info(guild_id)
     await interaction.response.send_message(f"Emoji {emoji} updated with new delta {delta}.")
 
 @emoji_group.command(name="list", description="List the emojis being tracked in this server.")
