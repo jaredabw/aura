@@ -27,22 +27,27 @@ class Guild:
     last_update: int = None
 
 def load_data(filename="data.json"):
-    with open(filename, "r") as file:
-        raw_data: dict[str, dict[int, dict]] = json.load(file)
-        guilds: dict[int, Guild] = {}
-        for guild_id, guild in raw_data.get("guilds", {}).items():
-            users = {user_id: User(aura=data["aura"]) for user_id, data in guild.get("users", {}).items()}
-            reactions = {emoji: EmojiReaction(delta=data["delta"]) for emoji, data in guild.get("reactions", {}).items()}
-            guilds[int(guild_id)] = Guild(
-                users=users,
-                reactions=reactions,
-                info_msg_id=guild.get("info_msg_id", None),
-                board_msg_id=guild.get("board_msg_id", None),
-                msgs_channel_id=guild.get("msgs_channel_id", None),
-                last_update=guild.get("last_update", None)
-            )
+    try:
+        with open(filename, "r") as file:
+            raw_data: dict[str, dict[int, dict]] = json.load(file)
+            guilds: dict[int, Guild] = {}
+            for guild_id, guild in raw_data.get("guilds", {}).items():
+                users = {user_id: User(aura=data["aura"]) for user_id, data in guild.get("users", {}).items()}
+                reactions = {emoji: EmojiReaction(delta=data["delta"]) for emoji, data in guild.get("reactions", {}).items()}
+                guilds[int(guild_id)] = Guild(
+                    users=users,
+                    reactions=reactions,
+                    info_msg_id=guild.get("info_msg_id", None),
+                    board_msg_id=guild.get("board_msg_id", None),
+                    msgs_channel_id=guild.get("msgs_channel_id", None),
+                    last_update=guild.get("last_update", None)
+                )
 
-    return guilds
+        return guilds
+    except (FileNotFoundError, json.JSONDecodeError):
+        with open(filename, "w") as file:
+            json.dump({"guilds": {}}, file)
+        return {}
 
 def save_data(guilds: Dict[int, Guild], filename="data.json"):
     # Convert the guilds data back to a dict to save in JSON
