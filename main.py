@@ -108,7 +108,7 @@ def update_time_and_save(guild_id, guilds: Dict[int, Guild]):
     save_data(guilds)
 
 intents = discord.Intents.default()
-intents.members = True
+intents.members = True # required for client.get_user() and client.fetch_message().author
 
 client = discord.Client(intents=intents)
 
@@ -234,11 +234,7 @@ def get_leaderboard(guild_id: int, persistent=False) -> discord.Embed:
     embed.set_thumbnail(url=iconurl)
 
     for i, (user_id, user) in enumerate(leaderboard):
-        member = client.get_user(user_id)
-        if member is not None:
-            embed.description += f"{i+1}. **{user.aura}** | {member.name}\n"
-        else:
-            embed.description += f"{i+1}. **{user.aura}** | {user_id}\n"
+        embed.description += f"{i+1}. **{user.aura}** | <@{user_id}>\n"
     return embed
 
 # need to add pagination/multiple embeds
