@@ -115,9 +115,11 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
             update_time_and_save(guild_id, guilds)
 
 # need to add pagination/multiple embeds
-def get_leaderboard(guild_id: int) -> discord.Embed:
+def get_leaderboard(guild_id: int, persistent=False) -> discord.Embed:
     embed = discord.Embed(color=0x74327a)
     embed.set_author(name=f"🏆 {client.get_guild(guild_id).name} Aura Leaderboard")
+    if persistent:
+        embed.set_footer(text="Updates every 2 minutes.")
     embed.description = ""
 
     leaderboard = sorted(guilds[guild_id].users.items(), key=lambda item: item[1].aura, reverse=True)
@@ -157,7 +159,7 @@ async def update_leaderboards():
                 if channel is not None:
                     try:
                         board_msg = await channel.fetch_message(guild.board_msg_id)
-                        await board_msg.edit(embed=get_leaderboard(guild_id))
+                        await board_msg.edit(embed=get_leaderboard(guild_id, True))
                     except discord.NotFound:
                         pass
 
@@ -192,7 +194,7 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
         if channel is not None:
             guilds[guild_id].msgs_channel_id = channel.id
             guilds[guild_id].info_msg_id = (await channel.send(embed=get_emoji_list(guild_id))).id
-            guilds[guild_id].board_msg_id = (await channel.send(embed=get_leaderboard(guild_id))).id
+            guilds[guild_id].board_msg_id = (await channel.send(embed=get_leaderboard(guild_id, True))).id
 
             update_time_and_save(guild_id, guilds)
             await interaction.response.send_message(f"Setup complete. Leaderboard will be displayed in {channel.mention} or run </leaderboard:1356179831288758387>. Next, add emojis to track using </emoji add:1356180634602700863> or remove the default emojis with </emoji remove:1356180634602700863>.")
@@ -215,7 +217,7 @@ async def update_channel(interaction: discord.Interaction, channel: discord.Text
 
     guilds[guild_id].msgs_channel_id = channel.id
     guilds[guild_id].info_msg_id = (await channel.send(embed=get_emoji_list(guild_id))).id
-    guilds[guild_id].board_msg_id = (await channel.send(embed=get_leaderboard(guild_id))).id
+    guilds[guild_id].board_msg_id = (await channel.send(embed=get_leaderboard(guild_id, True))).id
 
     update_time_and_save(guild_id, guilds)
     await interaction.response.send_message(f"Channel updated. Leaderboard will be displayed in {channel.mention}.")
