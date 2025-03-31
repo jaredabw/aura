@@ -32,7 +32,7 @@ ADDING_COOLDOWN = 10 # how long to wait before allowing a user to give a new rea
 @dataclass
 class User:
     aura: int = 0
-    lastadded: int = 0
+    lastgave: int = 0
 
 @dataclass
 class EmojiReaction:
@@ -54,7 +54,7 @@ def load_data(filename="data.json"):
             raw_data: dict[str, dict[int, dict]] = json.load(file)
             guilds: dict[int, Guild] = {}
             for guild_id, guild in raw_data.get("guilds", {}).items():
-                users = {int(user_id): User(aura=data["aura"], lastadded=data["lastadded"]) for user_id, data in guild.get("users", {}).items()}
+                users = {int(user_id): User(aura=data["aura"], lastgave=data["lastgave"]) for user_id, data in guild.get("users", {}).items()}
                 reactions = {emoji: EmojiReaction(points=data["points"]) for emoji, data in guild.get("reactions", {}).items()}
                 guilds[int(guild_id)] = Guild(
                     users=users,
@@ -89,7 +89,7 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
         }
 
         for user_id, user in guild.users.items():
-            guild_data["users"][str(user_id)] = {"aura": user.aura, "lastadded": user.lastadded}
+            guild_data["users"][str(user_id)] = {"aura": user.aura, "lastgave": user.lastgave}
         
         for emoji, reaction in guild.reactions.items():
             guild_data["reactions"][emoji] = {"points": reaction.points}
@@ -157,12 +157,12 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
                 guilds[guild_id].users[payload.user_id] = User()
 
             # users can receive as many reactions as they get, but the user giving the reaction has a cooldown
-            if adding and int(time.time()) - guilds[guild_id].users[user_id].lastadded < ADDING_COOLDOWN:
+            if adding and int(time.time()) - guilds[guild_id].users[user_id].lastgave < ADDING_COOLDOWN:
                 # if the user is trying to add a reaction too fast, ignore it
                 return
             else:
                 # update the last added time for the user who is giving the reaction
-                guilds[guild_id].users[user_id].lastadded = int(time.time())
+                guilds[guild_id].users[user_id].lastgave = int(time.time())
 
             if adding:
                 guilds[guild_id].users[author_id].aura += guilds[guild_id].reactions[emoji].points
