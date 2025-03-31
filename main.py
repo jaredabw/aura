@@ -34,7 +34,7 @@ def load_data(filename="data.json"):
             raw_data: dict[str, dict[int, dict]] = json.load(file)
             guilds: dict[int, Guild] = {}
             for guild_id, guild in raw_data.get("guilds", {}).items():
-                users = {user_id: User(aura=data["aura"]) for user_id, data in guild.get("users", {}).items()}
+                users = {int(user_id): User(aura=data["aura"]) for user_id, data in guild.get("users", {}).items()}
                 reactions = {emoji: EmojiReaction(delta=data["delta"]) for emoji, data in guild.get("reactions", {}).items()}
                 guilds[int(guild_id)] = Guild(
                     users=users,
@@ -67,7 +67,7 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
         }
 
         for user_id, user in guild.users.items():
-            guild_data["users"][user_id] = {"aura": user.aura}
+            guild_data["users"][str(user_id)] = {"aura": user.aura}
         
         for emoji, reaction in guild.reactions.items():
             guild_data["reactions"][emoji] = {"delta": reaction.delta}
@@ -89,13 +89,13 @@ client = discord.Client(intents=intents)
 
 tree = app_commands.CommandTree(client)
 emoji_group = app_commands.Group(name="emoji", description="Commands for managing emojis.")
-tree.add_command(emoji_group, guild=discord.Object(id=1099224566917767188))
+tree.add_command(emoji_group)
 
 guilds = load_data()
 
 @client.event
 async def on_ready():
-    await tree.sync(guild=discord.Object(id=1099224566917767188))
+    await tree.sync()
 
     await client.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="for aura changes"))
     update_leaderboards.start()
@@ -106,11 +106,11 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     if payload.guild_id in guilds and payload.user_id != payload.message_author_id:
         emoji = str(payload.emoji)
         guild_id = payload.guild_id
-        user_id = payload.user_id
+        author_id = payload.message_author_id
         if emoji in guilds[guild_id].reactions:
-            if user_id not in guilds[guild_id].users:
-                guilds[guild_id].users[user_id] = User()
-            guilds[guild_id].users[user_id].aura += guilds[guild_id].reactions[emoji].delta
+            if author_id not in guilds[guild_id].users:
+                guilds[guild_id].users[author_id] = User()
+            guilds[guild_id].users[author_id].aura += guilds[guild_id].reactions[emoji].delta
             update_time_and_save(guild_id, guilds)
 
 # need to add pagination/multiple embeds
