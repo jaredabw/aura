@@ -1,4 +1,3 @@
-__**INFO:**__
 Aura tracks emoji reactions and gives aura points to people based on the reactions they receive. Use the commands below to set up and manage the bot in your server.
 
 __**SETUP:**__
@@ -17,3 +16,9 @@ __**AURA COMMANDS:**__
 - </emoji remove:1356180634602700863> - Remove an emoji from tracking. This command stops tracking the specified emoji and removes its aura impact.
 - </emoji update:1356180634602700863> - Update the points of a tracked emoji. Use this command to change the aura points impact of an emoji. For example, you can change ⭐ from +1 to +2.
 - </emoji list:1356180634602700863> - List all tracked emojis. This command displays all emojis currently being tracked in the server, along with their aura points impact.
+
+__**INFO:**__
+- All reactions are counted when multiple people put the same reaction on a message.
+- Users can give a reaction whenever they like, but there is a 10 second cooldown between reactions that affect aura.
+- You require Manage Channels permissions to run commands that affect the setup.
+- Emoji must be standard emoji or emoji from this server.
