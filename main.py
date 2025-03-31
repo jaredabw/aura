@@ -126,7 +126,7 @@ async def on_ready():
     await client.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="for aura changes"))
     if not update_leaderboards.is_running():
         print("Starting leaderboard update loop...")
-        await update_leaderboards()
+        await update_leaderboards(skip=True)
         update_leaderboards.start()
     if not send_batched_logs.is_running():
         print("Starting logging loop...")
@@ -266,10 +266,10 @@ def get_emoji_list(guild_id: int, persistent=False) -> discord.Embed:
     return embed
 
 @tasks.loop(seconds=UPDATE_INTERVAL)
-async def update_leaderboards():
+async def update_leaderboards(skip=False):
     for guild_id in guilds:
         guild = guilds[guild_id]
-        if int(time.time()) - guild.last_update < UPDATE_INTERVAL + 10: # if the last update was less than LIMIT seconds ago. ie: if there is new data to display
+        if skip or int(time.time()) - guild.last_update < UPDATE_INTERVAL + 10: # if the last update was less than LIMIT seconds ago. ie: if there is new data to display
             if guild.msgs_channel_id is not None:
                 channel = client.get_channel(guild.msgs_channel_id)
                 if channel is not None:
