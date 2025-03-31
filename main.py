@@ -139,9 +139,9 @@ def get_leaderboard(guild_id: int, persistent=False) -> discord.Embed:
     for i, (user_id, user) in enumerate(leaderboard):
         member = client.get_user(user_id)
         if member is not None:
-            embed.description += f"{i+1}. **{member.name}** | {user.aura}\n"
+            embed.description += f"{i+1}. **{user.aura}** | {member.name}\n"
         else:
-            embed.description += f"{i+1}. **{user_id}** | {user.aura}\n"
+            embed.description += f"{i+1}. **{user.aura}** | {user_id}\n"
     return embed
 
 # need to add pagination/multiple embeds
