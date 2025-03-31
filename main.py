@@ -194,7 +194,7 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
             guilds[guild_id].board_msg_id = (await channel.send(embed=get_leaderboard(guild_id))).id
 
             update_time_and_save(guild_id, guilds)
-            await interaction.response.send_message(f"Setup complete. Leaderboard will be displayed in {channel.mention} or run </leaderboard:1356146448244146209>. Next, add emojis to track using </emoji add:1356150986422620301>.")
+            await interaction.response.send_message(f"Setup complete. Leaderboard will be displayed in {channel.mention} or run </leaderboard:1356146448244146209>. Next, add emojis to track using </emoji add:1356150986422620301> or remove the default emojis with </emoji remove:1356150986422620301>.")
             return
         else:
             await interaction.response.send_message(f"Setup complete. Run </leaderboard:1356146448244146209> to display leaderboard and </emoji list:1356150986422620301> to see tracked emojis. Next, add emojis to track using </emoji add:1356150986422620301>.")
