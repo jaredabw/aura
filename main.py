@@ -24,11 +24,15 @@ from collections import defaultdict
 load_dotenv("token.env")
 TOKEN = os.getenv("TOKEN")
 
-LIMIT = 10 # how often to update the leaderboard in seconds
+# in seconds
+UPDATE_INTERVAL = 10 # how often to update the leaderboard
+LOGGING_INTERVAL = 10 # how often to send logs
+ADDING_COOLDOWN = 10 # how long to wait before allowing a user to give a new reaction
 
 @dataclass
 class User:
     aura: int = 0
+    lastadded: int = 0
 
 @dataclass
 class EmojiReaction:
@@ -50,7 +54,7 @@ def load_data(filename="data.json"):
             raw_data: dict[str, dict[int, dict]] = json.load(file)
             guilds: dict[int, Guild] = {}
             for guild_id, guild in raw_data.get("guilds", {}).items():
-                users = {int(user_id): User(aura=data["aura"]) for user_id, data in guild.get("users", {}).items()}
+                users = {int(user_id): User(aura=data["aura"], lastadded=data["lastadded"]) for user_id, data in guild.get("users", {}).items()}
                 reactions = {emoji: EmojiReaction(points=data["points"]) for emoji, data in guild.get("reactions", {}).items()}
                 guilds[int(guild_id)] = Guild(
                     users=users,
@@ -85,7 +89,7 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
         }
 
         for user_id, user in guild.users.items():
-            guild_data["users"][str(user_id)] = {"aura": user.aura}
+            guild_data["users"][str(user_id)] = {"aura": user.aura, "lastadded": user.lastadded}
         
         for emoji, reaction in guild.reactions.items():
             guild_data["reactions"][emoji] = {"points": reaction.points}
@@ -134,28 +138,41 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
 
 @client.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
+    payload.message_author_id = (await client.get_channel(payload.channel_id).fetch_message(payload.message_id)).author.id
+    # message_author_id is not in the payload on removal, so we need to fetch the message to get it
     await parse_payload(payload, adding=False)
 
 async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -> None:
-    if not adding:
-        payload.message_author_id = (await client.get_channel(payload.channel_id).fetch_message(payload.message_id)).author.id
-
     if payload.guild_id in guilds and payload.user_id != payload.message_author_id and not client.get_user(payload.message_author_id).bot:
         emoji = str(payload.emoji)
         guild_id = payload.guild_id
         author_id = payload.message_author_id
+        user_id = payload.user_id
         if emoji in guilds[guild_id].reactions:
             if author_id not in guilds[guild_id].users:
+                # recipient must be created
                 guilds[guild_id].users[author_id] = User()
+            if user_id not in guilds[guild_id].users:
+                # giver must be created
+                guilds[guild_id].users[payload.user_id] = User()
+
+            # users can receive as many reactions as they get, but the user giving the reaction has a cooldown
+            if adding and int(time.time()) - guilds[guild_id].users[user_id].lastadded < ADDING_COOLDOWN:
+                # if the user is trying to add a reaction too fast, ignore it
+                return
+            else:
+                # update the last added time for the user who is giving the reaction
+                guilds[guild_id].users[user_id].lastadded = int(time.time())
+
             if adding:
                 guilds[guild_id].users[author_id].aura += guilds[guild_id].reactions[emoji].points
             else:
                 guilds[guild_id].users[author_id].aura -= guilds[guild_id].reactions[emoji].points
             if guilds[guild_id].log_channel_id is not None:
-                await log_aura_change(guild_id, author_id, payload.user_id, emoji, guilds[guild_id].reactions[emoji].points, adding)
+                await log_aura_change(guild_id, author_id, user_id, emoji, guilds[guild_id].reactions[emoji].points, adding, f"https://discord.com/channels/{guild_id}/{payload.channel_id}/{payload.message_id}")
             update_time_and_save(guild_id, guilds)
 
-async def log_aura_change(guild_id: int, author_id: int, user_id: int, emoji: str, points: int, adding: bool) -> None:
+async def log_aura_change(guild_id: int, author_id: int, user_id: int, emoji: str, points: int, adding: bool, url: str) -> None:
     # i want to batch the messages to avoid spamming the channel
     action = "added" if adding else "removed"
 
@@ -170,11 +187,11 @@ async def log_aura_change(guild_id: int, author_id: int, user_id: int, emoji: st
     else:
         sign = "error"
     points = abs(points)
-    log_message = f"<@{user_id}> {action} {emoji} {'to' if adding else 'from'} <@{author_id}> ({sign}{points} points)"
+    log_message = f"<@{user_id}> [{action}]({url}) {emoji} {'to' if adding else 'from'} <@{author_id}> ({sign}{points} points)"
 
     log_cache[guild_id].append(log_message)
 
-@tasks.loop(seconds=10)
+@tasks.loop(seconds=LOGGING_INTERVAL)
 async def send_batched_logs():
     for guild_id, logs in list(log_cache.items()):
         if logs:
@@ -198,8 +215,8 @@ async def send_batched_logs():
 def get_leaderboard(guild_id: int, persistent=False) -> discord.Embed:
     embed = discord.Embed(color=0x74327a)
     if persistent:
-        mins = LIMIT // 60
-        secs = LIMIT % 60
+        mins = UPDATE_INTERVAL // 60
+        secs = UPDATE_INTERVAL % 60
         if mins > 0:
             embed.set_footer(text=f"Updates every {mins}m{' ' if secs > 0 else ''}{secs}{'s' if secs > 0 else ''}.")
         else:
@@ -249,11 +266,11 @@ def get_emoji_list(guild_id: int, persistent=False) -> discord.Embed:
 
     return embed
 
-@tasks.loop(seconds=LIMIT)
+@tasks.loop(seconds=UPDATE_INTERVAL)
 async def update_leaderboards():
     for guild_id in guilds:
         guild = guilds[guild_id]
-        if int(time.time()) - guild.last_update < LIMIT + 10: # if the last update was less than LIMIT seconds ago. ie: if there is new data to display
+        if int(time.time()) - guild.last_update < UPDATE_INTERVAL + 10: # if the last update was less than LIMIT seconds ago. ie: if there is new data to display
             if guild.msgs_channel_id is not None:
                 channel = client.get_channel(guild.msgs_channel_id)
                 if channel is not None:
