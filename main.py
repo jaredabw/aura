@@ -23,6 +23,7 @@ from collections import defaultdict
 # TODO: customisable leaderboard: top all time / top this week / top this month
 # TODO: multi lang support
 # TODO: opt in/out
+# TODO: admins ban users from participating
 # TODO: emoji usage stats
 
 load_dotenv("token.env")
