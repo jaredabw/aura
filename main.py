@@ -118,12 +118,16 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
 # need to add pagination/multiple embeds
 def get_leaderboard(guild_id: int, persistent=False) -> discord.Embed:
     embed = discord.Embed(color=0x74327a)
-    embed.set_author(name=f"🏆 {client.get_guild(guild_id).name} Aura Leaderboard")
     if persistent:
         embed.set_footer(text="Updates every 2 minutes.")
     embed.description = ""
 
+    embed.set_author(name=f"🏆 {client.get_guild(guild_id).name} Aura Leaderboard")
+
     leaderboard = sorted(guilds[guild_id].users.items(), key=lambda item: item[1].aura, reverse=True)
+
+    iconurl = client.get_user(leaderboard[0][0]).avatar.url if (len(leaderboard) > 0 and client.get_user(leaderboard[0][0]) is not None) else None
+    embed.set_thumbnail(url=iconurl)
 
     for i, (user_id, user) in enumerate(leaderboard):
         member = client.get_user(user_id)
@@ -136,10 +140,14 @@ def get_leaderboard(guild_id: int, persistent=False) -> discord.Embed:
 # need to add pagination/multiple embeds
 def get_emoji_list(guild_id: int) -> discord.Embed:
     embed = discord.Embed(color=0x74327a)
-    embed.set_author(name=f"🔧 {client.get_guild(guild_id).name} Emoji List")
     embed.description = ""
 
+    embed.set_author(name=f"🔧 {client.get_guild(guild_id).name} Emoji List")
+
     emojis = sorted(guilds[guild_id].reactions.items(), key=lambda item: item[1].points, reverse=True)
+
+    iconurl = client.get_guild(guild_id).icon.url if client.get_guild(guild_id).icon else None
+    embed.set_thumbnail(url=iconurl)
 
     gap = False
     for emoji, reaction in emojis:
@@ -150,11 +158,12 @@ def get_emoji_list(guild_id: int) -> discord.Embed:
 
     return embed
 
-@tasks.loop(seconds=120)
+limit = 120
+@tasks.loop(seconds=limit)
 async def update_leaderboards():
     for guild_id in guilds:
         guild = guilds[guild_id]
-        if int(time.time()) - guild.last_update < 130: # if the last update was less than 130 seconds ago. ie: if there is new data to display
+        if int(time.time()) - guild.last_update < limit + 10: # if the last update was less than 130 seconds ago. ie: if there is new data to display
             if guild.msgs_channel_id is not None:
                 channel = client.get_channel(guild.msgs_channel_id)
                 if channel is not None:
