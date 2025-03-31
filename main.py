@@ -10,6 +10,10 @@ from typing import Dict
 from dotenv import load_dotenv
 from collections import defaultdict
 
+# TODO: fix bug: a user can still spam reactions, by putting reactions that give the negative aura of what they intend to give; this is because the cooldown only applies to adding, not removing
+# i.e: user puts a positive reaction, removes positive reaction, puts a positive reaction (this is not counted due to cooldown), removes the positive reactions (this is counted and then removes aura from recipient)
+# not sure how to fix.
+
 # TODO: add pagination to leaderboard and emoji list
 # TODO: aura based role rewards
 # TODO: check a given users aura
@@ -183,7 +187,7 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
             if adding and int(time.time()) - guilds[guild_id].users[user_id].time_last_given < ADDING_COOLDOWN:
                 # if the user is trying to add a reaction too fast, ignore it
                 return
-            else:
+            elif adding:
                 # update the last added time for the user who is giving the reaction
                 guilds[guild_id].users[user_id].time_last_given = int(time.time())
 
