@@ -1,13 +1,15 @@
 import discord
 import json
 import time
+import os
 from discord import app_commands
 from discord.ext import tasks
 from dataclasses import dataclass, field
 from typing import Dict
 from dotenv import load_dotenv
 
-TOKEN = load_dotenv("token.env")["TOKEN"]
+load_dotenv("token.env")
+TOKEN = os.getenv("TOKEN")
 
 @dataclass
 class User:
