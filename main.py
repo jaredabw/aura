@@ -10,7 +10,6 @@ from typing import Dict
 from dotenv import load_dotenv
 from collections import defaultdict
 
-# TODO: help command
 # TODO: add pagination to leaderboard and emoji list
 # TODO: aura based role rewards
 # TODO: check a given users aura
@@ -30,7 +29,7 @@ UPDATE_INTERVAL = 10 # how often to update the leaderboard
 LOGGING_INTERVAL = 10 # how often to send logs
 ADDING_COOLDOWN = 10 # how long to wait before allowing a user to give a new reaction
 
-with open("help.txt", "r") as help_file:
+with open("help.txt", "r", encoding="utf-8") as help_file:
     HELP_TEXT = help_file.read()
 
 @dataclass
