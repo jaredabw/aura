@@ -2,6 +2,7 @@ import discord
 import json
 import time
 import os
+import emoji as emojilib
 from discord import app_commands
 from discord.ext import tasks
 from dataclasses import dataclass, field
@@ -245,13 +246,6 @@ async def leaderboard(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=get_leaderboard(guild_id))
 
-def is_valid_unicode_emoji(emoji: str) -> bool:
-    try:
-        parsed_emoji = discord.PartialEmoji.from_str(emoji)
-        return parsed_emoji.is_unicode_emoji()
-    except Exception:
-        return False
-
 @emoji_group.command(name="add", description="Add an emoji to tracking.")
 @app_commands.checks.has_permissions(manage_channels=True)
 @app_commands.describe(emoji="The emoji to start tracking.", points="The points impact for the emoji. Positive or negative.")
@@ -265,13 +259,17 @@ async def add_emoji(interaction: discord.Interaction, emoji: str, points: int):
         await interaction.response.send_message("This emoji is already being tracked. Use </emoji update:1356180634602700863> to update its points or </emoji remove:1356180634602700863> to remove it.")
         return
     
-    if is_valid_unicode_emoji(emoji) or discord.utils.get(interaction.guild.emojis, id=int(emoji.split(":")[2][:-1])):
-        guilds[guild_id].reactions[emoji] = EmojiReaction(points=points)
-        update_time_and_save(guild_id, guilds)
-        await update_info(guild_id)
-        await interaction.response.send_message(f"Emoji {emoji} added: worth {'+' if points > 0 else ''}{points} points.")
-    else:
-        await interaction.response.send_message("This emoji is not from this server.")
+    try:
+        if emojilib.is_emoji(emoji) or discord.utils.get(interaction.guild.emojis, id=int(emoji.split(":")[2][:-1])):
+            guilds[guild_id].reactions[emoji] = EmojiReaction(points=points)
+            update_time_and_save(guild_id, guilds)
+            await update_info(guild_id)
+            await interaction.response.send_message(f"Emoji {emoji} added: worth {'+' if points > 0 else ''}{points} points.")
+        else:
+            await interaction.response.send_message("This emoji is not from this server, or is not a valid emoji.")
+            return
+    except IndexError:
+        await interaction.response.send_message("This is not a valid emoji.")
         return
 
 @emoji_group.command(name="remove", description="Remove an emoji from tracking.")
