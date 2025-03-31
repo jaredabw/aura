@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 from collections import defaultdict
 
 # TODO: add pagination to leaderboard and emoji list
-# TODO: count reactions given & received
 # TODO: aura based role rewards
 # TODO: check a given users aura
 # TODO: manual aura changes by admins
@@ -427,6 +426,7 @@ async def logging(interaction: discord.Interaction, channel: discord.TextChannel
     else:
         guilds[guild_id].log_channel_id = None
         await interaction.response.send_message("Logging disabled.")
+    update_time_and_save(guild_id, guilds)
 
 @emoji_group.command(name="add", description="Add an emoji to tracking.")
 @app_commands.checks.has_permissions(manage_channels=True)
