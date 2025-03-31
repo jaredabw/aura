@@ -10,6 +10,7 @@ from typing import Dict
 from dotenv import load_dotenv
 from collections import defaultdict
 
+# TODO: help command
 # TODO: add pagination to leaderboard and emoji list
 # TODO: aura based role rewards
 # TODO: check a given users aura
@@ -28,6 +29,9 @@ TOKEN = os.getenv("TOKEN")
 UPDATE_INTERVAL = 10 # how often to update the leaderboard
 LOGGING_INTERVAL = 10 # how often to send logs
 ADDING_COOLDOWN = 10 # how long to wait before allowing a user to give a new reaction
+
+with open("help.txt", "r") as help_file:
+    HELP_TEXT = help_file.read()
 
 @dataclass
 class User:
@@ -291,6 +295,15 @@ async def update_info(guild_id: int):
             except Exception:
                 pass
 
+@tree.command(name="help", description="Display the help text.")
+async def help_command(interaction: discord.Interaction):
+    embed = discord.Embed(color=0x74327a)
+    embed.set_author(name="Aura", icon_url=client.user.avatar.url)
+    embed.title = "Aura info, setup and help"
+    embed.description = HELP_TEXT
+    embed.set_footer(text="If you have any questions, please contact @engiw.")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
 @tree.command(name="setup", description="Setup the bot. (Optional) Displays the leaderboard in the given channel.")
 @app_commands.checks.has_permissions(manage_channels=True)
 @app_commands.describe(channel="The channel to display the leaderboard in.")
@@ -304,7 +317,7 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
         guilds[guild_id] = Guild()
         guilds[guild_id].last_update = int(time.time())
         guilds[guild_id].reactions = {
-            "🔥": EmojiReaction(points=1),
+            "⭐": EmojiReaction(points=1),
             "💀": EmojiReaction(points=-1)
         }
 
@@ -353,7 +366,7 @@ async def delete(interaction: discord.Interaction):
     save_data(guilds)
     await interaction.response.send_message("Data deleted. If this was a mistake, contact `@engiw` to restore data.")
 
-@tree.command(name="leaderboard", description="Show the leaderboard at this moment.")
+@tree.command(name="leaderboard", description="Show the current leaderboard.")
 async def leaderboard(interaction: discord.Interaction):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
