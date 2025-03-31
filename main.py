@@ -9,6 +9,18 @@ from dataclasses import dataclass, field
 from typing import Dict
 from dotenv import load_dotenv
 
+# TODO: add pagination to leaderboard and emoji list
+# TODO: aura logging
+# TODO: aura based role rewards
+# TODO: check a given users aura
+# TODO: reset tracking emojis without deleting the leaderboard
+# TODO: reset leaderboard without deleting the emojis
+# TODO: customisable leaderboard: top all time / top this week / top this month
+# TODO: reaction removal handling
+# TODO: multi lang support
+# TODO: opt in/out
+# TODO: emoji usage stats
+
 load_dotenv("token.env")
 TOKEN = os.getenv("TOKEN")
 
