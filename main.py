@@ -137,7 +137,11 @@ def get_emoji_list(guild_id: int) -> discord.Embed:
 
     emojis = sorted(guilds[guild_id].reactions.items(), key=lambda item: item[1].delta, reverse=True)
 
+    gap = False
     for emoji, reaction in emojis:
+        if reaction.delta < 0 and not gap:
+            embed.description += "---------\n"
+            gap = True
         embed.description += f"{emoji} **{'+' if reaction.delta > 0 else ''}{reaction.delta}**\n"
 
     return embed
@@ -178,6 +182,12 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
 
     try:
         guilds[guild_id] = Guild()
+        guilds[guild_id].last_update = int(time.time())
+        guilds[guild_id].reactions = {
+            "🔥": EmojiReaction(delta=1),
+            "💀": EmojiReaction(delta=-1)
+        }
+
         if channel is not None:
             guilds[guild_id].msgs_channel_id = channel.id
             guilds[guild_id].info_msg_id = (await channel.send(embed=get_emoji_list(guild_id))).id
