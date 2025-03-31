@@ -103,7 +103,7 @@ async def on_ready():
 
 @client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
-    if payload.guild_id in guilds and payload.user_id != payload.message_author_id:
+    if payload.guild_id in guilds and payload.user_id != payload.message_author_id and not client.get_user(payload.message_author_id).bot:
         emoji = str(payload.emoji)
         guild_id = payload.guild_id
         author_id = payload.message_author_id
