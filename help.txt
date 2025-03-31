@@ -7,12 +7,12 @@ __**SETUP:**__
 3. Watch the leaderboard in the new channel, or run </leaderboard:1356179831288758387> to see it!
 
 __**AURA COMMANDS:**__
-- </help:> - This command. Gives information about the bot.
+- </help:1356273217890816000> - This command. Gives information about the bot.
 - </setup:1356179831288758384> - Setup the bot for your server. This command initializes the bot and optionally allows you to specify a channel to display the leaderboard. By default, ⭐ (+1) and 💀 (-1) are added. Make sure to run this command before using other commands.
 - </updatechannel:1356179831288758385> - Update the leaderboard display channel. Use this command to change or add the channel where the leaderboard is displayed. The leaderboard and emoji list will be resent in the new channel. Ensure the bot has permission to send messages in the specified channel.
 - </delete:1356179831288758386> - Delete all bot data for this server. This command removes all tracked data, including emojis, leaderboards, and logs. Be careful as this action is irreversible.
 - </leaderboard:1356179831288758387> - Display the current leaderboard. This command shows the leaderboard with users ranked by their aura scores. The leaderboard in your specified channel updates automatically, but you can use this command to view it manually.
-- </logging:> - Enable or disable aura change logging. Specify a channel to enable logging of aura changes. If you leave the channel argument empty, logging will be disabled. Logs are sent in batches every 10 seconds to avoid spamming.
+- </logging:1356254831488139457> - Enable or disable aura change logging. Specify a channel to enable logging of aura changes. If you leave the channel argument empty, logging will be disabled. Logs are sent in batches every 10 seconds to avoid spamming.
 - </emoji add:1356180634602700863> - Add an emoji to tracking. Use this command to specify an emoji and its aura points impact (positive or negative). For example, ⭐ could add +1 point, while 💀 could subtract -1 point.
 - </emoji remove:1356180634602700863> - Remove an emoji from tracking. This command stops tracking the specified emoji and removes its aura impact.
 - </emoji update:1356180634602700863> - Update the points of a tracked emoji. Use this command to change the aura points impact of an emoji. For example, you can change ⭐ from +1 to +2.
