@@ -124,9 +124,9 @@ def get_leaderboard(guild_id: int, persistent=False) -> discord.Embed:
         mins = LIMIT // 60
         secs = LIMIT % 60
         if mins > 0:
-            embed.set_footer(text=f"Updates every {mins}m{' ' if secs > 0 else ''}{secs}{'s' if secs > 0 else ''}")
+            embed.set_footer(text=f"Updates every {mins}m{' ' if secs > 0 else ''}{secs}{'s' if secs > 0 else ''}.")
         else:
-            embed.set_footer(text=f"Updates every {secs}s")
+            embed.set_footer(text=f"Updates every {secs}s.")
     embed.description = ""
 
     embed.set_author(name=f"🏆 {client.get_guild(guild_id).name} Aura Leaderboard")
