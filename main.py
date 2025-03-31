@@ -336,7 +336,7 @@ async def update_info(guild_id: int):
 async def help_command(interaction: discord.Interaction):
     embed = discord.Embed(color=0x74327a)
     embed.set_author(name="Aura", icon_url=client.user.avatar.url)
-    embed.title = "Aura info, setup and help"
+    embed.title = "Aura setup, help and info"
     embed.description = HELP_TEXT
     embed.set_footer(text="If you have any questions, please contact @engiw.")
     await interaction.response.send_message(embed=embed, ephemeral=True)
