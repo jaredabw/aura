@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from collections import defaultdict
 
 # TODO: add pagination to leaderboard and emoji list
+# TODO: count reactions given & received
 # TODO: aura based role rewards
 # TODO: check a given users aura
 # TODO: manual aura changes by admins
@@ -36,6 +37,8 @@ with open("help.txt", "r", encoding="utf-8") as help_file:
 class User:
     aura: int = 0
     lastgave: int = 0
+    numgiven: int = 0
+    numreceived: int = 0
 
 @dataclass
 class EmojiReaction:
@@ -57,7 +60,7 @@ def load_data(filename="data.json"):
             raw_data: dict[str, dict[int, dict]] = json.load(file)
             guilds: dict[int, Guild] = {}
             for guild_id, guild in raw_data.get("guilds", {}).items():
-                users = {int(user_id): User(aura=data["aura"], lastgave=data["lastgave"]) for user_id, data in guild.get("users", {}).items()}
+                users = {int(user_id): User(aura=data["aura"], lastgave=data["lastgave"], numgiven=data["numgiven"], numreceived=data["numreceived"]) for user_id, data in guild.get("users", {}).items()}
                 reactions = {emoji: EmojiReaction(points=data["points"]) for emoji, data in guild.get("reactions", {}).items()}
                 guilds[int(guild_id)] = Guild(
                     users=users,
@@ -92,7 +95,7 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
         }
 
         for user_id, user in guild.users.items():
-            guild_data["users"][str(user_id)] = {"aura": user.aura, "lastgave": user.lastgave}
+            guild_data["users"][str(user_id)] = {"aura": user.aura, "lastgave": user.lastgave, "numgiven": user.numgiven, "numreceived": user.numreceived}
         
         for emoji, reaction in guild.reactions.items():
             guild_data["reactions"][emoji] = {"points": reaction.points}
@@ -169,10 +172,19 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
 
             if adding:
                 guilds[guild_id].users[author_id].aura += guilds[guild_id].reactions[emoji].points
-            else:
+
+                guilds[guild_id].users[user_id].numgiven += 1
+                guilds[guild_id].users[author_id].numreceived += 1
+
+            else: # removing
                 guilds[guild_id].users[author_id].aura -= guilds[guild_id].reactions[emoji].points
+
+                guilds[guild_id].users[user_id].numgiven -= 1
+                guilds[guild_id].users[author_id].numreceived -= 1
+
             if guilds[guild_id].log_channel_id is not None:
                 await log_aura_change(guild_id, author_id, user_id, emoji, guilds[guild_id].reactions[emoji].points, adding, f"https://discord.com/channels/{guild_id}/{payload.channel_id}/{payload.message_id}")
+
             update_time_and_save(guild_id, guilds)
 
 async def log_aura_change(guild_id: int, author_id: int, user_id: int, emoji: str, points: int, adding: bool, url: str) -> None:
