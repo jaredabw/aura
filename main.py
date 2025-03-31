@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 # TODO: aura logging
 # TODO: aura based role rewards
 # TODO: check a given users aura
+# TODO: manual aura changes by admins
 # TODO: reset tracking emojis without deleting the leaderboard
 # TODO: reset leaderboard without deleting the emojis
 # TODO: customisable leaderboard: top all time / top this week / top this month
