@@ -8,16 +8,15 @@ from discord.ext import tasks
 from dataclasses import dataclass, field
 from typing import Dict
 from dotenv import load_dotenv
+from collections import defaultdict
 
 # TODO: add pagination to leaderboard and emoji list
-# TODO: aura logging
 # TODO: aura based role rewards
 # TODO: check a given users aura
 # TODO: manual aura changes by admins
 # TODO: reset tracking emojis without deleting the leaderboard
 # TODO: reset leaderboard without deleting the emojis
 # TODO: customisable leaderboard: top all time / top this week / top this month
-# TODO: reaction removal handling
 # TODO: multi lang support
 # TODO: opt in/out
 # TODO: emoji usage stats
@@ -42,6 +41,7 @@ class Guild:
     info_msg_id: int = None
     board_msg_id: int = None
     msgs_channel_id: int = None
+    log_channel_id: int = None
     last_update: int = None
 
 def load_data(filename="data.json"):
@@ -58,6 +58,7 @@ def load_data(filename="data.json"):
                     info_msg_id=guild.get("info_msg_id", None),
                     board_msg_id=guild.get("board_msg_id", None),
                     msgs_channel_id=guild.get("msgs_channel_id", None),
+                    log_channel_id=guild.get("log_channel_id", None),
                     last_update=guild.get("last_update", None)
                 )
 
@@ -79,6 +80,7 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
             "info_msg_id": guild.info_msg_id,
             "board_msg_id": guild.board_msg_id,
             "msgs_channel_id": guild.msgs_channel_id,
+            "log_channel_id": guild.log_channel_id,
             "last_update": guild.last_update
         }
 
@@ -108,6 +110,7 @@ emoji_group = app_commands.Group(name="emoji", description="Commands for managin
 tree.add_command(emoji_group)
 
 guilds = load_data()
+log_cache = defaultdict(list)
 
 @client.event
 async def on_ready():
@@ -115,11 +118,28 @@ async def on_ready():
 
     await client.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="for aura changes"))
     if not update_leaderboards.is_running():
+        print("Starting leaderboard update loop...")
+        await update_leaderboards()
         update_leaderboards.start()
+    if not send_batched_logs.is_running():
+        print("Starting logging loop...")
+        await send_batched_logs()
+        send_batched_logs.start()
+
     print(f"Logged in as {client.user}")
 
 @client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
+    await parse_payload(payload, adding=True)
+
+@client.event
+async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
+    await parse_payload(payload, adding=False)
+
+async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -> None:
+    if not adding:
+        payload.message_author_id = (await client.get_channel(payload.channel_id).fetch_message(payload.message_id)).author.id
+
     if payload.guild_id in guilds and payload.user_id != payload.message_author_id and not client.get_user(payload.message_author_id).bot:
         emoji = str(payload.emoji)
         guild_id = payload.guild_id
@@ -127,8 +147,52 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
         if emoji in guilds[guild_id].reactions:
             if author_id not in guilds[guild_id].users:
                 guilds[guild_id].users[author_id] = User()
-            guilds[guild_id].users[author_id].aura += guilds[guild_id].reactions[emoji].points
+            if adding:
+                guilds[guild_id].users[author_id].aura += guilds[guild_id].reactions[emoji].points
+            else:
+                guilds[guild_id].users[author_id].aura -= guilds[guild_id].reactions[emoji].points
+            if guilds[guild_id].log_channel_id is not None:
+                await log_aura_change(guild_id, author_id, payload.user_id, emoji, guilds[guild_id].reactions[emoji].points, adding)
             update_time_and_save(guild_id, guilds)
+
+async def log_aura_change(guild_id: int, author_id: int, user_id: int, emoji: str, points: int, adding: bool) -> None:
+    # i want to batch the messages to avoid spamming the channel
+    action = "added" if adding else "removed"
+
+    if points > 0 and adding:
+        sign = "+"
+    elif points > 0 and not adding:
+        sign = "-"
+    elif points < 0 and adding:
+        sign = "-"
+    elif points < 0 and not adding:
+        sign = "+"
+    else:
+        sign = "error"
+    points = abs(points)
+    log_message = f"<@{user_id}> {action} {emoji} {'to' if adding else 'from'} <@{author_id}> ({sign}{points} points)"
+
+    log_cache[guild_id].append(log_message)
+
+@tasks.loop(seconds=10)
+async def send_batched_logs():
+    for guild_id, logs in list(log_cache.items()):
+        if logs:
+            channel_id = guilds[guild_id].log_channel_id
+            if channel_id is not None:
+                channel = client.get_channel(channel_id)
+                if channel is not None:
+                    try:
+                        await channel.send(
+                            "\n".join(logs),
+                            allowed_mentions=discord.AllowedMentions(users=False)
+                        )
+                    except discord.Forbidden:
+                        print(f"Failed to send logs to channel {channel_id} in guild {guild_id}.")
+                    except discord.HTTPException as e:
+                        print(f"Failed to send logs: HTTPException: {e}")
+
+            log_cache[guild_id].clear()
 
 # need to add pagination/multiple embeds
 def get_leaderboard(guild_id: int, persistent=False) -> discord.Embed:
@@ -280,6 +344,26 @@ async def leaderboard(interaction: discord.Interaction):
         return
 
     await interaction.response.send_message(embed=get_leaderboard(guild_id))
+
+@tree.command(name="logging", description="Enable or disable logging of aura changes.")
+@app_commands.checks.has_permissions(manage_channels=True)
+@app_commands.describe(channel="The channel to log aura changes in. Leave empty to disable logging.")
+async def logging(interaction: discord.Interaction, channel: discord.TextChannel = None):
+    guild_id = interaction.guild.id
+    if guild_id not in guilds:
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
+        return
+    
+    if channel is not None:
+        try:
+            await channel.send("Aura logging enabled.")
+            guilds[guild_id].log_channel_id = channel.id
+            await interaction.response.send_message(f"Logging enabled in {channel.mention}. Logs will be sent every 10 seconds.")
+        except discord.Forbidden:
+            await interaction.response.send_message("I don't have permission to send messages in that channel. Please choose a different channel or update my permissions.")
+    else:
+        guilds[guild_id].log_channel_id = None
+        await interaction.response.send_message("Logging disabled.")
 
 @emoji_group.command(name="add", description="Add an emoji to tracking.")
 @app_commands.checks.has_permissions(manage_channels=True)
