@@ -194,10 +194,10 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
             guilds[guild_id].board_msg_id = (await channel.send(embed=get_leaderboard(guild_id))).id
 
             update_time_and_save(guild_id, guilds)
-            await interaction.response.send_message(f"Setup complete. Leaderboard will be displayed in {channel.mention} or run </leaderboard:1356146448244146209>. Next, add emojis to track using </emoji add:1356150986422620301> or remove the default emojis with </emoji remove:1356150986422620301>.")
+            await interaction.response.send_message(f"Setup complete. Leaderboard will be displayed in {channel.mention} or run </leaderboard:1356179831288758387>. Next, add emojis to track using </emoji add:1356180634602700863> or remove the default emojis with </emoji remove:1356180634602700863>.")
             return
         else:
-            await interaction.response.send_message(f"Setup complete. Run </leaderboard:1356146448244146209> to display leaderboard and </emoji list:1356150986422620301> to see tracked emojis. Next, add emojis to track using </emoji add:1356150986422620301>.")
+            await interaction.response.send_message(f"Setup complete. Run </leaderboard:1356179831288758387> to display leaderboard and </emoji list:1356180634602700863> to see tracked emojis. Next, add emojis to track using </emoji add:1356180634602700863>.")
             return
     except discord.Forbidden:
         await interaction.response.send_message("I don't have permission to send messages in that channel. Please choose a different channel or update my permissions.")
@@ -209,7 +209,7 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
 async def update_channel(interaction: discord.Interaction, channel: discord.TextChannel):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
-        await interaction.response.send_message("Please run </setup:1356146448244146206> first.")
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
 
     guilds[guild_id].msgs_channel_id = channel.id
@@ -224,7 +224,7 @@ async def update_channel(interaction: discord.Interaction, channel: discord.Text
 async def delete(interaction: discord.Interaction):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
-        await interaction.response.send_message("Please run </setup:1356146448244146206> first.")
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
 
     await (client.get_user(355938178265251842)).send(f"Guild {guild_id} data was deleted. Data as follows:\n\n```{json.dumps({str(guild_id): guilds[guild_id]}, default=lambda o: o.__dict__, indent=4)}```")
@@ -237,7 +237,7 @@ async def delete(interaction: discord.Interaction):
 async def leaderboard(interaction: discord.Interaction):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
-        await interaction.response.send_message("Please run </setup:1356146448244146206> first.")
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
 
     await interaction.response.send_message(embed=get_leaderboard(guild_id))
@@ -255,11 +255,11 @@ def is_valid_unicode_emoji(emoji: str) -> bool:
 async def add_emoji(interaction: discord.Interaction, emoji: str, delta: int):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
-        await interaction.response.send_message("Please run </setup:1356146448244146206> first.")
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
 
     if emoji in guilds[guild_id].reactions:
-        await interaction.response.send_message("This emoji is already being tracked. Use </emoji update:1356150986422620301> to update the delta or </emoji remove:1356150986422620301> to remove it.")
+        await interaction.response.send_message("This emoji is already being tracked. Use </emoji update:1356180634602700863> to update the delta or </emoji remove:1356180634602700863> to remove it.")
         return
     
     if is_valid_unicode_emoji(emoji) or discord.utils.get(interaction.guild.emojis, id=int(emoji.split(":")[2][:-1])):
@@ -277,7 +277,7 @@ async def add_emoji(interaction: discord.Interaction, emoji: str, delta: int):
 async def remove_emoji(interaction: discord.Interaction, emoji: str):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
-        await interaction.response.send_message("Please run </setup:1356146448244146206> first.")
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
 
     if emoji not in guilds[guild_id].reactions:
@@ -295,11 +295,11 @@ async def remove_emoji(interaction: discord.Interaction, emoji: str):
 async def update_emoji(interaction: discord.Interaction, emoji: str, delta: int):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
-        await interaction.response.send_message("Please run </setup:1356146448244146206> first.")
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
     
     if emoji not in guilds[guild_id].reactions:
-        await interaction.response.send_message("This emoji is not being tracked yet. Use </emoji add:1356150986422620301> to add it.")
+        await interaction.response.send_message("This emoji is not being tracked yet. Use </emoji add:1356180634602700863> to add it.")
         return
     
     guilds[guild_id].reactions[emoji].delta = delta
@@ -312,7 +312,7 @@ async def list_emoji(interaction: discord.Interaction):
     guild_id = interaction.guild.id
 
     if guild_id not in guilds:
-        await interaction.response.send_message("Please run </setup:1356146448244146206> first.")
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
     
     await interaction.response.send_message(embed=get_emoji_list(guild_id))
