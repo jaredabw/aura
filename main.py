@@ -48,7 +48,8 @@ def load_data(filename="data.json"):
         return guilds
     except (FileNotFoundError, json.JSONDecodeError):
         with open(filename, "w") as file:
-            json.dump({"guilds": {}}, file)
+            json.dump({"guilds": {}}, file, indent=4)
+        print("No data found, created a new data file.")
         return {}
 
 def save_data(guilds: Dict[int, Guild], filename="data.json"):
