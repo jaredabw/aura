@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 load_dotenv("token.env")
 TOKEN = os.getenv("TOKEN")
 
+LIMIT = 10 # how often to update the leaderboard in seconds
+
 @dataclass
 class User:
     aura: int = 0
@@ -119,7 +121,12 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
 def get_leaderboard(guild_id: int, persistent=False) -> discord.Embed:
     embed = discord.Embed(color=0x74327a)
     if persistent:
-        embed.set_footer(text="Updates every 2 minutes.")
+        mins = LIMIT // 60
+        secs = LIMIT % 60
+        if mins > 0:
+            embed.set_footer(text=f"Updates every {mins}m{' ' if secs > 0 else ''}{secs}{'s' if secs > 0 else ''}")
+        else:
+            embed.set_footer(text=f"Updates every {secs}s")
     embed.description = ""
 
     embed.set_author(name=f"🏆 {client.get_guild(guild_id).name} Aura Leaderboard")
@@ -158,12 +165,11 @@ def get_emoji_list(guild_id: int) -> discord.Embed:
 
     return embed
 
-limit = 120
-@tasks.loop(seconds=limit)
+@tasks.loop(seconds=LIMIT)
 async def update_leaderboards():
     for guild_id in guilds:
         guild = guilds[guild_id]
-        if int(time.time()) - guild.last_update < limit + 10: # if the last update was less than 130 seconds ago. ie: if there is new data to display
+        if int(time.time()) - guild.last_update < LIMIT + 10: # if the last update was less than LIMIT seconds ago. ie: if there is new data to display
             if guild.msgs_channel_id is not None:
                 channel = client.get_channel(guild.msgs_channel_id)
                 if channel is not None:
