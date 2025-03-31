@@ -145,23 +145,30 @@ def get_leaderboard(guild_id: int, persistent=False) -> discord.Embed:
     return embed
 
 # need to add pagination/multiple embeds
-def get_emoji_list(guild_id: int) -> discord.Embed:
+def get_emoji_list(guild_id: int, persistent=False) -> discord.Embed:
     embed = discord.Embed(color=0x74327a)
-    embed.description = ""
-
+    if persistent:
+        embed.set_footer(text=f"Updates immediately.")
     embed.set_author(name=f"🔧 {client.get_guild(guild_id).name} Emoji List")
 
-    emojis = sorted(guilds[guild_id].reactions.items(), key=lambda item: item[1].points, reverse=True)
+    emojis = sorted(guilds[guild_id].reactions.items(), key=lambda item: abs(item[1].points), reverse=True)
 
+    positive_reactions = [f"{emoji} **+{reaction.points}**" for emoji, reaction in emojis if reaction.points > 0]
+    negative_reactions = [f"{emoji} **{reaction.points}**" for emoji, reaction in emojis if reaction.points < 0]
+
+    if positive_reactions:
+        embed.add_field(name="**+**", value="\n".join(positive_reactions))
+    else:
+        embed.add_field(name="**+**", value="*(empty)*")
+
+    if negative_reactions:
+        embed.add_field(name="**-**", value="\n".join(negative_reactions))
+    else:
+        embed.add_field(name="**-**", value="*(empty)*")
+
+    # Add guild icon as thumbnail
     iconurl = client.get_guild(guild_id).icon.url if client.get_guild(guild_id).icon else None
     embed.set_thumbnail(url=iconurl)
-
-    gap = False
-    for emoji, reaction in emojis:
-        if reaction.points < 0 and not gap:
-            embed.description += "---------\n"
-            gap = True
-        embed.description += f"{emoji} **{'+' if reaction.points > 0 else ''}{reaction.points}**\n"
 
     return embed
 
@@ -186,7 +193,7 @@ async def update_info(guild_id: int):
         if channel is not None:
             try:
                 info_msg = await channel.fetch_message(guild.info_msg_id)
-                await info_msg.edit(embed=get_emoji_list(guild_id))
+                await info_msg.edit(embed=get_emoji_list(guild_id, True))
             except Exception:
                 pass
 
@@ -209,7 +216,7 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
 
         if channel is not None:
             guilds[guild_id].msgs_channel_id = channel.id
-            guilds[guild_id].info_msg_id = (await channel.send(embed=get_emoji_list(guild_id))).id
+            guilds[guild_id].info_msg_id = (await channel.send(embed=get_emoji_list(guild_id, True))).id
             guilds[guild_id].board_msg_id = (await channel.send(embed=get_leaderboard(guild_id, True))).id
 
             update_time_and_save(guild_id, guilds)
@@ -232,7 +239,7 @@ async def update_channel(interaction: discord.Interaction, channel: discord.Text
         return
 
     guilds[guild_id].msgs_channel_id = channel.id
-    guilds[guild_id].info_msg_id = (await channel.send(embed=get_emoji_list(guild_id))).id
+    guilds[guild_id].info_msg_id = (await channel.send(embed=get_emoji_list(guild_id, True))).id
     guilds[guild_id].board_msg_id = (await channel.send(embed=get_leaderboard(guild_id, True))).id
 
     update_time_and_save(guild_id, guilds)
@@ -274,6 +281,10 @@ async def add_emoji(interaction: discord.Interaction, emoji: str, points: int):
         await interaction.response.send_message("This emoji is already being tracked. Use </emoji update:1356180634602700863> to update its points or </emoji remove:1356180634602700863> to remove it.")
         return
     
+    if points == 0:
+        await interaction.response.send_message("Points cannot be 0. Please use a positive or negative number.")
+        return
+
     try:
         if emojilib.is_emoji(emoji) or discord.utils.get(interaction.guild.emojis, id=int(emoji.split(":")[2][:-1])):
             guilds[guild_id].reactions[emoji] = EmojiReaction(points=points)
@@ -318,6 +329,10 @@ async def update_emoji(interaction: discord.Interaction, emoji: str, points: int
         await interaction.response.send_message("This emoji is not being tracked yet. Use </emoji add:1356180634602700863> to add it.")
         return
     
+    if points == 0:
+        await interaction.response.send_message("Points cannot be 0. Please use a positive or negative number.")
+        return
+
     guilds[guild_id].reactions[emoji].points = points
     update_time_and_save(guild_id, guilds)
     await update_info(guild_id)
