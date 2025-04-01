@@ -32,7 +32,8 @@ TOKEN = os.getenv("TOKEN")
 # in seconds
 UPDATE_INTERVAL = 10 # how often to update the leaderboard
 LOGGING_INTERVAL = 10 # how often to send logs
-ADDING_COOLDOWN = 10 # how long to wait before allowing a user to give a new reaction
+ADDING_COOLDOWN = 10 # how long to wait before allowing a user to add a new reaction
+REMOVING_COOLDOWN = 10 # how long to wait before allowing a user to remove a reaction
 
 with open("help.txt", "r", encoding="utf-8") as help_file:
     HELP_TEXT = help_file.read()
@@ -40,7 +41,6 @@ with open("help.txt", "r", encoding="utf-8") as help_file:
 @dataclass
 class User:
     aura: int = 0
-    time_last_given: int = 0
     num_pos_given: int = 0
     num_pos_received: int = 0
     num_neg_given: int = 0
@@ -48,6 +48,11 @@ class User:
     opted_in: bool = True
     giving_allowed: bool = True
     receiving_allowed: bool = True
+
+@dataclass
+class UserCooldowns:
+    add_cooldown_began: int = 0
+    remove_cooldown_began: int = 0
 
 @dataclass
 class EmojiReaction:
@@ -72,7 +77,6 @@ def load_data(filename="data.json"):
                 users = {
                     int(user_id): User(
                         aura=data["aura"],
-                        time_last_given=data["time_last_given"],
                         num_pos_given=data["num_pos_given"],
                         num_pos_received=data["num_pos_received"],
                         num_neg_given=data["num_neg_given"],
@@ -93,6 +97,7 @@ def load_data(filename="data.json"):
                     last_update=guild.get("last_update", None)
                 )
 
+        populateCooldowns()
         return guilds
     except (FileNotFoundError, json.JSONDecodeError):
         with open(filename, "w") as file:
@@ -118,7 +123,6 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
         for user_id, user in guild.users.items():
             guild_data["users"][str(user_id)] = {
                 "aura": user.aura,
-                "time_last_given": user.time_last_given,
                 "num_pos_given": user.num_pos_given,
                 "num_pos_received": user.num_pos_received,
                 "num_neg_given": user.num_neg_given,
@@ -139,7 +143,45 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
 
 def update_time_and_save(guild_id, guilds: Dict[int, Guild]):
     guilds[guild_id].last_update = int(time.time())
+    populateCooldowns()
     save_data(guilds)
+
+cooldowns: defaultdict[int, dict[int, UserCooldowns]] = defaultdict(dict)
+# {guild_id: {user_id: UserCooldowns}}
+# this lives in memory as it is not super important to be persistent
+# if the bot restarted we have a bigger problem anyway
+
+def populateCooldowns():
+    '''Populdate the cooldowns dict with all users'''
+    for guild_id in guilds:
+        for user_id in guilds[guild_id].users:
+            if user_id not in cooldowns[guild_id]:
+                cooldowns[guild_id][user_id] = UserCooldowns()
+
+def startCooldown(guild_id: int, user_id: int, action: str) -> None:
+    '''Start the cooldown for a user'''
+    if action == "add":
+        cooldowns[guild_id][user_id].add_cooldown_began = int(time.time())
+    elif action == "remove":
+        cooldowns[guild_id][user_id].remove_cooldown_began = int(time.time())
+    else: raise ValueError("Invalid action. Must be 'add' or 'remove'.")
+
+def endCooldown(guild_id: int, user_id: int, action: str) -> None:
+    '''End the cooldown early for a user'''
+    if action == "add":
+        cooldowns[guild_id][user_id].add_cooldown_began = 0
+    elif action == "remove":
+        cooldowns[guild_id][user_id].remove_cooldown_began = 0
+    else: raise ValueError("Invalid action. Must be 'add' or 'remove'.")
+
+def isCooldownComplete(guild_id: int, user_id: int, action: str) -> bool:
+    '''Check if the cooldown is complete for a user'''
+    # does not need to set it back to 0 because if the user isnt on cooldown anymore it makes no difference when checking: will still be true either way.
+    if action == "add":
+        return int(time.time()) - cooldowns[guild_id][user_id].add_cooldown_began >= ADDING_COOLDOWN
+    elif action == "remove":
+        return int(time.time()) - cooldowns[guild_id][user_id].remove_cooldown_began >= REMOVING_COOLDOWN
+    else: raise ValueError("Invalid action. Must be 'add' or 'remove'.")
 
 intents = discord.Intents.default()
 intents.members = True # required for client.get_user() and client.fetch_message().author
@@ -204,33 +246,35 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
             if not guilds[guild_id].users[user_id].opted_in or not guilds[guild_id].users[author_id].opted_in:
                 return
 
-            # users can receive as many reactions as they get, but the user giving the reaction has a cooldown
-            if adding and int(time.time()) - guilds[guild_id].users[user_id].time_last_given < ADDING_COOLDOWN:
-                # if the user is trying to add a reaction too fast, ignore it
+            # check if the user is on cooldown
+            if adding and not isCooldownComplete(guild_id, user_id, "add"):
                 return
-            elif adding:
-                # update the last added time for the user who is giving the reaction
-                guilds[guild_id].users[user_id].time_last_given = int(time.time())
+            elif not adding and not isCooldownComplete(guild_id, author_id, "remove"):
+                return
+            
+            # reset cooldowns
+            if adding:
+                startCooldown(guild_id, user_id, "add")
+                endCooldown(guild_id, user_id, "remove")
+            elif not adding:
+                startCooldown(guild_id, author_id, "remove")
+                endCooldown(guild_id, author_id, "add")
 
             if adding:
-                guilds[guild_id].users[author_id].aura += guilds[guild_id].reactions[emoji].points
-
-                if guilds[guild_id].reactions[emoji].points > 0:
-                    guilds[guild_id].users[user_id].num_pos_given += 1
-                    guilds[guild_id].users[author_id].num_pos_received += 1
-                else:
-                    guilds[guild_id].users[user_id].num_neg_given += 1
-                    guilds[guild_id].users[author_id].num_neg_received += 1
-
+                points = guilds[guild_id].reactions[emoji].points
+                one = 1
             else: # removing
-                guilds[guild_id].users[author_id].aura -= guilds[guild_id].reactions[emoji].points
+                points = -guilds[guild_id].reactions[emoji].points
+                one = -1
 
-                if guilds[guild_id].reactions[emoji].points > 0:
-                    guilds[guild_id].users[user_id].num_pos_given -= 1
-                    guilds[guild_id].users[author_id].num_pos_received -= 1
-                else:
-                    guilds[guild_id].users[user_id].num_neg_given -= 1
-                    guilds[guild_id].users[author_id].num_neg_received -= 1
+            guilds[guild_id].users[author_id].aura += points
+
+            if guilds[guild_id].reactions[emoji].points > 0:
+                guilds[guild_id].users[user_id].num_pos_given += one
+                guilds[guild_id].users[author_id].num_pos_received += one
+            else:
+                guilds[guild_id].users[user_id].num_neg_given += one
+                guilds[guild_id].users[author_id].num_neg_received += one
 
             if guilds[guild_id].log_channel_id is not None:
                 await log_aura_change(guild_id, author_id, user_id, emoji, guilds[guild_id].reactions[emoji].points, adding, f"https://discord.com/channels/{guild_id}/{payload.channel_id}/{payload.message_id}")
