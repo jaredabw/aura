@@ -1,4 +1,4 @@
-Aura tracks emoji reactions and gives aura points to people based on the reactions they receive. Use the commands below to set up and manage the bot in your server.
+Aura tracks emoji reactions and gives aura points to people based on the reactions they receive.
 
 __**SETUP:**__
 1. Run </setup:1356179831288758384>. If you want a live leaderboard, create a new channel and provide it.
