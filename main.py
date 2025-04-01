@@ -497,9 +497,12 @@ async def help_command(interaction: discord.Interaction):
     embed = discord.Embed(color=0x74327a)
     embed.set_author(name="Aura", icon_url=client.user.avatar.url)
     embed.title = "Aura setup, help and info"
-    embed.description = HELP_TEXT
-    embed.set_footer(text="If you have any questions, please contact @engiw.")
+    embed.description = HELP_TEXT.split("|")[0]
+    embed2 = discord.Embed(color=0x74327a)
+    embed2.description = HELP_TEXT.split("|")[1]
+    embed2.set_footer(text="If you have any questions, please contact @engiw.")
     await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.followup.send(embed=embed2, ephemeral=True)
 
 @tree.command(name="setup", description="Setup the bot. (Optional) Displays the leaderboard in the given channel.")
 @app_commands.checks.has_permissions(manage_channels=True)
