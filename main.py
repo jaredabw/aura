@@ -1,3 +1,4 @@
+import asyncio
 import discord
 import json
 import time
@@ -8,11 +9,7 @@ from discord.ext import tasks
 from dataclasses import dataclass, field
 from typing import Dict
 from dotenv import load_dotenv
-from collections import defaultdict
-
-# TODO: fix bug: a user can still spam reactions, by putting reactions that give the negative aura of what they intend to give; this is because the cooldown only applies to adding, not removing
-# i.e: user puts a positive reaction, removes positive reaction, puts a positive reaction (this is not counted due to cooldown), removes the positive reactions (this is counted and then removes aura from recipient)
-# not sure how to fix.
+from collections import defaultdict, deque
 
 # TODO: penalise and forgive: if penalised, gain half and lose double
 
@@ -32,8 +29,15 @@ TOKEN = os.getenv("TOKEN")
 # in seconds
 UPDATE_INTERVAL = 10 # how often to update the leaderboard
 LOGGING_INTERVAL = 10 # how often to send logs
-ADDING_COOLDOWN = 10 # how long to wait before allowing a user to add a new reaction
-REMOVING_COOLDOWN = 10 # how long to wait before allowing a user to remove a reaction
+
+# make constants below configurable in the future
+# user can send LIMIT_THRESHOLD reaction events (add or remove) in the last LIMIT_INTERVAL seconds before being denied for LIMIT_PENALTY seconds
+LIMIT_INTERVAL = 60
+LIMIT_THRESHOLD = 15
+LIMIT_PENALTY = 300
+
+ADDING_COOLDOWN = 10 # how long to wait before allowing a user to add a new reaction and give aura
+REMOVING_COOLDOWN = 10 # how long to wait before allowing a user to remove a reaction and restore aura
 
 with open("help.txt", "r", encoding="utf-8") as help_file:
     HELP_TEXT = help_file.read()
@@ -196,6 +200,8 @@ tree.add_command(opt_group)
 
 guilds = load_data()
 log_cache = defaultdict(list)
+sliding_window: defaultdict[tuple, deque] = defaultdict(deque)
+temp_banned_users = defaultdict(list) # {guild_id: [user_id]}
 
 @client.event
 async def on_ready():
@@ -238,6 +244,10 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
                 # giver must be created
                 guilds[guild_id].users[payload.user_id] = User()
 
+            # check temp banned
+            if user_id in temp_banned_users[guild_id]:
+                return
+
             # check user restrictions
             if not guilds[guild_id].users[user_id].giving_allowed or not guilds[guild_id].users[author_id].receiving_allowed:
                 return
@@ -245,6 +255,8 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
             # check if the user is opted in
             if not guilds[guild_id].users[user_id].opted_in or not guilds[guild_id].users[author_id].opted_in:
                 return
+
+            await update_sliding_window(guild_id, user_id)
 
             # check if the user is on cooldown
             if adding and not isCooldownComplete(guild_id, user_id, "add"):
@@ -281,16 +293,36 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
 
             update_time_and_save(guild_id, guilds)
 
-async def log_aura_change(guild_id: int, author_id: int, user_id: int, emoji: str, points: int, adding: bool, url: str, action: str = None) -> None:
+async def update_sliding_window(guild_id: int, user_id: int) -> None:
+    current_time = time.time()
+    sliding_window[(guild_id, user_id)].append(current_time)
+    while sliding_window[(user_id, guild_id)] and sliding_window[(user_id, guild_id)][0] < current_time - LIMIT_INTERVAL:
+        sliding_window[(user_id, guild_id)].popleft()
+    if len(sliding_window[(user_id, guild_id)]) > LIMIT_THRESHOLD:
+        await handle_spam(user_id, guild_id)
+
+async def handle_spam(user_id: int, guild_id: int) -> None:
+    # deny the user from giving aura for LIMIT_PENALTY seconds
+    temp_banned_users[guild_id].append(user_id)
+    await client.get_user(user_id).send(f"You have been banned from giving aura in {client.get_guild(guild_id).name} for {LIMIT_PENALTY} seconds due to spamming reactions.")
+    await log_aura_change(guild_id, user_id, user_id, "spammed", None, None, None, None)
+
+    # start a timer to allow the user to give aura again after LIMIT_PENALTY seconds
+    await asyncio.sleep(LIMIT_PENALTY)
+    temp_banned_users[guild_id].remove(user_id)
+
+async def log_aura_change(guild_id: int, author_id: int, user_id: int, text: str, points: int, adding: bool, url: str, action: str = None) -> None:
     # i want to batch the messages to avoid spamming the channel
-    if emoji == "manual":
+    if text == "manual":
         log_message = f"<@{user_id}> manually changed aura of <@{author_id}> ({'+' if points > 0 else ''}{points} points)"
-    elif emoji == "deny":
+    elif text == "deny":
         action_str = "giving" if action == "give" else "receiving" if action == "receive" else "giving and receiving"
         log_message = f"<@{user_id}> denied <@{author_id}> from {action_str} aura."
-    elif emoji == "allow":
+    elif text == "allow":
         action_str = "give and receive" if action == "both" else action
         log_message = f"<@{user_id}> allowed <@{author_id}> to {action_str} aura."
+    elif text == "spammed":
+        log_message = f"<@{user_id}> was banned from giving aura for {LIMIT_PENALTY} seconds due to spamming reactions."
     else:
         action = "added" if adding else "removed"
 
@@ -305,7 +337,7 @@ async def log_aura_change(guild_id: int, author_id: int, user_id: int, emoji: st
         else:
             sign = "error"
         points = abs(points)
-        log_message = f"<@{user_id}> [{action}]({url}) {emoji} {'to' if adding else 'from'} <@{author_id}> ({sign}{points} points)"
+        log_message = f"<@{user_id}> [{action}]({url}) {text} {'to' if adding else 'from'} <@{author_id}> ({sign}{points} points)"
 
     log_cache[guild_id].append(log_message)
 
