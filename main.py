@@ -14,17 +14,20 @@ from collections import defaultdict
 # i.e: user puts a positive reaction, removes positive reaction, puts a positive reaction (this is not counted due to cooldown), removes the positive reactions (this is counted and then removes aura from recipient)
 # not sure how to fix.
 
-# TODO: add pagination to leaderboard and emoji list
-# TODO: aura based role rewards
 # TODO: check a given users aura
 # TODO: manual aura changes by admins
-# TODO: reset tracking emojis without deleting the leaderboard
-# TODO: reset leaderboard without deleting the emojis
-# TODO: customisable leaderboard: top all time / top this week / top this month
-# TODO: multi lang support
 # TODO: opt in/out
 # TODO: admins ban users from participating
+
 # TODO: emoji usage stats
+
+# TODO: reset tracking emojis without deleting the leaderboard
+# TODO: reset leaderboard without deleting the emojis
+
+# TODO: add pagination to leaderboard and emoji list
+# TODO: aura based role rewards
+# TODO: customisable leaderboard: top all time / top this week / top this month
+# TODO: multi lang support
 
 load_dotenv("token.env")
 TOKEN = os.getenv("TOKEN")
