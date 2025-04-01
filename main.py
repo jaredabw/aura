@@ -334,23 +334,59 @@ def get_emoji_list(guild_id: int, persistent=False) -> discord.Embed:
 
     return embed
 
+def get_aura_tagline(aura: int):    
+    aura_ranges = [
+        (-50, -40, "The embodiment of bad vibes."),
+        (-40, -30, "Existential crisis in human form."),
+        (-30, -20, "Cursed beyond redemption."),
+        (-20, -10, "Should come with a warning label."),
+        (-10, 0, "Dark clouds follow you everywhere."),
+        (0, 10, "Beginning to farm aura..."),
+        (10, 20, "Somewhere between good and bad vibes."),
+        (20, 30, "You’re on the up and up!"),
+        (30, 40, "A radiant beam of positivity."),
+        (40, 50, "Sunshine in human form."),
+        (50, 60, "Good vibes only, all the time."),
+        (60, 70, "Spreading joy wherever you go."),
+        (70, 80, "Like a walking, talking hug."),
+        (80, 90, "You're what happens when optimism meets the real world."),
+        (90, 100, "You radiate good energy like a solar panel."),
+        (100, 110, "The kind of person you want around when things get tough."),
+        (110, 120, "If good vibes were a currency, you'd be a billionaire."),
+        (120, 130, "You’re a walking positive influence."),
+        (130, 140, "Everyone’s better when you’re around."),
+        (140, 150, "Vibes so good they should be illegal."),
+        (150, 160, "You could probably cure bad moods with a smile."),
+        (160, 170, "You're a ray of sunshine in a sea of clouds."),
+        (170, 180, "People follow you just to feel better."),
+        (180, 190, "Like a personal therapist, but cooler."),
+        (190, float('inf'), "You are the definition of good vibes.")
+    ]
+    
+    for lower, upper, tag in aura_ranges:
+        if lower <= aura < upper:
+            return tag
+
 def get_user_aura(guild_id: int, user_id: int) -> discord.Embed:
     embed = discord.Embed(color=0xb57f94)
     if guild_id not in guilds:
         return embed
     if user_id not in guilds[guild_id].users:
         return embed
-    embed.set_author(name=f"{client.get_guild(guild_id).name} Aura Breakdown")
+    embed.set_author(name=f"Aura Breakdown")
     embed.set_thumbnail(url=client.get_user(user_id).avatar.url)
 
     user = guilds[guild_id].users[user_id]
 
+    tag = get_aura_tagline(user.aura)
+
     if user.opted_in:
-        embed.description = f"<@{user_id}> has **{user.aura}** aura.\n\n"
-        embed.description += f"Pos. reactions given:        **{user.num_pos_given}**\n"
-        embed.description += f"Pos. reactions received:  **{user.num_pos_received}**\n"
-        embed.description += f"Neg. reactions given:        **{user.num_neg_given}**\n"
-        embed.description += f"Neg. reactions received:  **{user.num_neg_received}**\n"
+        embed.description = f"<@{user_id}> has **{user.aura}** aura.\n"
+        embed.description += f"*{tag}*\n\n"
+        embed.description += f"**{user.num_pos_given}** positive reactions given.\n"
+        embed.description += f"**{user.num_pos_received}** positive reactions received.\n"
+        embed.description += f"**{user.num_neg_given}** negative reactions given.\n"
+        embed.description += f"**{user.num_neg_received}** negative reactions received.\n"
     else:
         embed.description = f"<@{user_id}> is opted out of aura tracking."
 
