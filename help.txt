@@ -24,8 +24,8 @@ __*General Commands*__:
 - </leaderboard:1356179831288758387> - Display the current leaderboard. The leaderboard in your specified channel updates automatically, but you can use this command to view it manually.  
 - </aura:1356559832605392979> - Check your or another user's aura and other info. If no user is specified, it displays your own info.  
 - </emoji list:1356180634602700863> - List all tracked emojis with their aura points impact.  
-- </opt in:> - Opt in to aura tracking. Users are opted in by default.  
-- </opt out:> - Opt out of aura tracking. Hides you from the leaderboard.  
+- </opt in:1356593461914108076> - Opt in to aura tracking. Users are opted in by default.  
+- </opt out:1356593461914108076> - Opt out of aura tracking. Hides you from the leaderboard.  
 
 __**INFO:**__
 - All reactions are counted when multiple people put the same reaction on a message.
