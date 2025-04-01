@@ -14,11 +14,6 @@ from collections import defaultdict
 # i.e: user puts a positive reaction, removes positive reaction, puts a positive reaction (this is not counted due to cooldown), removes the positive reactions (this is counted and then removes aura from recipient)
 # not sure how to fix.
 
-# TODO: check a given users aura
-# TODO: manual aura changes by admins
-# TODO: opt in/out
-# TODO: admins ban users from participating
-
 # TODO: emoji usage stats
 
 # TODO: reset tracking emojis without deleting the leaderboard
@@ -48,6 +43,9 @@ class User:
     num_pos_received: int = 0
     num_neg_given: int = 0
     num_neg_received: int = 0
+    opted_in: bool = True
+    giving_allowed: bool = True
+    receiving_allowed: bool = True
 
 @dataclass
 class EmojiReaction:
@@ -76,7 +74,10 @@ def load_data(filename="data.json"):
                         num_pos_given=data["num_pos_given"],
                         num_pos_received=data["num_pos_received"],
                         num_neg_given=data["num_neg_given"],
-                        num_neg_received=data["num_neg_received"]
+                        num_neg_received=data["num_neg_received"],
+                        opted_in=data["opted_in"],
+                        giving_allowed=data["giving_allowed"],
+                        receiving_allowed=data["receiving_allowed"]
                     ) for user_id, data in guild.get("users", {}).items()
                     }
                 reactions = {emoji: EmojiReaction(points=data["points"]) for emoji, data in guild.get("reactions", {}).items()}
@@ -119,7 +120,10 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
                 "num_pos_given": user.num_pos_given,
                 "num_pos_received": user.num_pos_received,
                 "num_neg_given": user.num_neg_given,
-                "num_neg_received": user.num_neg_received
+                "num_neg_received": user.num_neg_received,
+                "opted_in": user.opted_in,
+                "giving_allowed": user.giving_allowed,
+                "receiving_allowed": user.receiving_allowed
                 }
         
         for emoji, reaction in guild.reactions.items():
@@ -142,6 +146,7 @@ client = discord.Client(intents=intents)
 
 tree = app_commands.CommandTree(client)
 emoji_group = app_commands.Group(name="emoji", description="Commands for managing emojis.")
+opt_group = app_commands.Group(name="opt", description="Commands for managing aura participation.")
 tree.add_command(emoji_group)
 
 guilds = load_data()
@@ -179,6 +184,7 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
         guild_id = payload.guild_id
         author_id = payload.message_author_id
         user_id = payload.user_id
+
         if emoji in guilds[guild_id].reactions:
             if author_id not in guilds[guild_id].users:
                 # recipient must be created
@@ -186,6 +192,14 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
             if user_id not in guilds[guild_id].users:
                 # giver must be created
                 guilds[guild_id].users[payload.user_id] = User()
+
+            # check user restrictions
+            if not guilds[guild_id].users[user_id].giving_allowed or not guilds[guild_id].users[author_id].receiving_allowed:
+                return
+            
+            # check if the user is opted in
+            if not guilds[guild_id].users[user_id].opted_in or not guilds[guild_id].users[author_id].opted_in:
+                return
 
             # users can receive as many reactions as they get, but the user giving the reaction has a cooldown
             if adding and int(time.time()) - guilds[guild_id].users[user_id].time_last_given < ADDING_COOLDOWN:
@@ -220,22 +234,31 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
 
             update_time_and_save(guild_id, guilds)
 
-async def log_aura_change(guild_id: int, author_id: int, user_id: int, emoji: str, points: int, adding: bool, url: str) -> None:
+async def log_aura_change(guild_id: int, author_id: int, user_id: int, emoji: str, points: int, adding: bool, url: str, action: str = None) -> None:
     # i want to batch the messages to avoid spamming the channel
-    action = "added" if adding else "removed"
-
-    if points > 0 and adding:
-        sign = "+"
-    elif points > 0 and not adding:
-        sign = "-"
-    elif points < 0 and adding:
-        sign = "-"
-    elif points < 0 and not adding:
-        sign = "+"
+    if emoji == "manual":
+        log_message = f"<@{user_id}> manually changed aura of <@{author_id}> ({'+' if points > 0 else ''}{points} points)"
+    elif emoji == "deny":
+        action_str = "giving" if action == "give" else "receiving" if action == "receive" else "giving and receiving"
+        log_message = f"<@{user_id}> denied <@{author_id}> from {action_str} aura."
+    elif emoji == "allow":
+        action_str = "give and receive" if action == "both" else action
+        log_message = f"<@{user_id}> allowed <@{author_id}> to {action_str} aura."
     else:
-        sign = "error"
-    points = abs(points)
-    log_message = f"<@{user_id}> [{action}]({url}) {emoji} {'to' if adding else 'from'} <@{author_id}> ({sign}{points} points)"
+        action = "added" if adding else "removed"
+
+        if points > 0 and adding:
+            sign = "+"
+        elif points > 0 and not adding:
+            sign = "-"
+        elif points < 0 and adding:
+            sign = "-"
+        elif points < 0 and not adding:
+            sign = "+"
+        else:
+            sign = "error"
+        points = abs(points)
+        log_message = f"<@{user_id}> [{action}]({url}) {emoji} {'to' if adding else 'from'} <@{author_id}> ({sign}{points} points)"
 
     log_cache[guild_id].append(log_message)
 
@@ -274,6 +297,7 @@ def get_leaderboard(guild_id: int, persistent=False) -> discord.Embed:
     embed.set_author(name=f"🏆 {client.get_guild(guild_id).name} Aura Leaderboard")
 
     leaderboard = sorted(guilds[guild_id].users.items(), key=lambda item: item[1].aura, reverse=True)
+    leaderboard = [(user_id, user) for user_id, user in leaderboard if user.opted_in]
 
     iconurl = client.get_user(leaderboard[0][0]).avatar.url if (len(leaderboard) > 0 and client.get_user(leaderboard[0][0]) is not None) else None
     embed.set_thumbnail(url=iconurl)
@@ -307,6 +331,32 @@ def get_emoji_list(guild_id: int, persistent=False) -> discord.Embed:
     # Add guild icon as thumbnail
     iconurl = client.get_guild(guild_id).icon.url if client.get_guild(guild_id).icon else None
     embed.set_thumbnail(url=iconurl)
+
+    return embed
+
+def get_user_aura(guild_id: int, user_id: int) -> discord.Embed:
+    embed = discord.Embed(color=0xb57f94)
+    if guild_id not in guilds:
+        return embed
+    if user_id not in guilds[guild_id].users:
+        return embed
+    embed.set_author(name=f"{client.get_guild(guild_id).name} Aura Breakdown")
+    embed.set_thumbnail(url=client.get_user(user_id).avatar.url)
+
+    user = guilds[guild_id].users[user_id]
+
+    if user.opted_in:
+        embed.description = f"<@{user_id}> has **{user.aura}** aura.\n\n"
+        embed.description += f"Pos. reactions given:        **{user.num_pos_given}**\n"
+        embed.description += f"Pos. reactions received:  **{user.num_pos_received}**\n"
+        embed.description += f"Neg. reactions given:        **{user.num_neg_given}**\n"
+        embed.description += f"Neg. reactions received:  **{user.num_neg_received}**\n"
+    else:
+        embed.description = f"<@{user_id}> is opted out of aura tracking."
+
+    give = "Allowed" if user.giving_allowed else "Not allowed"
+    receive = "Allowed" if user.receiving_allowed else "Not allowed"
+    embed.set_footer(text=f"{give} to give aura. {receive} to receive aura.")
 
     return embed
 
@@ -393,7 +443,7 @@ async def update_channel(interaction: discord.Interaction, channel: discord.Text
     await interaction.response.send_message(f"Channel updated. Leaderboard will be displayed in {channel.mention}.")
 
 @tree.command(name="delete", description="Delete the Aura bot data for this server.")
-@app_commands.checks.has_permissions(manage_channels=True)
+@app_commands.checks.has_permissions(administrator=True)
 async def delete(interaction: discord.Interaction):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
@@ -441,6 +491,161 @@ async def logging(interaction: discord.Interaction, channel: discord.TextChannel
         guilds[guild_id].log_channel_id = None
         await interaction.response.send_message("Logging disabled.")
     update_time_and_save(guild_id, guilds)
+
+@tree.command(name="aura", description="Check your or another person's aura.")
+@app_commands.describe(user="The user to check the aura of. Leave empty to check your own aura.")
+async def aura(interaction: discord.Interaction, user: discord.User = None):
+    if user is None:
+        user = interaction.user
+    guild_id = interaction.guild.id
+    if guild_id not in guilds:
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
+        return
+    if user.id not in guilds[guild_id].users:
+        await interaction.response.send_message("This user has had no interactions yet.")
+        return
+    await interaction.response.send_message(embed=get_user_aura(guild_id, user.id))
+
+@tree.command(name="changeaura", description="Change a user's aura by this amount. Positive or negative. Admin only.")
+@app_commands.checks.has_permissions(administrator=True)
+@app_commands.describe(user="The user to change the aura of.", amount="The amount to change the aura by. Positive or negative.")
+async def change_aura(interaction: discord.Interaction, user: discord.User, amount: int):
+    guild_id = interaction.guild.id
+    if guild_id not in guilds:
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
+        return
+    
+    if user.id not in guilds[guild_id].users:
+        await interaction.response.send_message("This user has had no interactions yet.")
+        return
+
+    guilds[guild_id].users[user.id].aura += amount
+    # add to log
+    if guilds[guild_id].log_channel_id is not None:
+        await log_aura_change(guild_id, user.id, interaction.user.id, "manual", amount, None, None)
+    update_time_and_save(guild_id, guilds)
+    await interaction.response.send_message(f"Changed <@{user.id}>'s aura by {amount}.")
+
+@tree.command(name="deny", description="Deny a user from giving or receiving aura.")
+@app_commands.checks.has_permissions(manage_channels=True)
+@app_commands.describe(user="The user to deny actions from.", action="The action to deny. `give`, `receive` or `both`.")
+async def deny(interaction: discord.Interaction, user: discord.User, action: str):
+    guild_id = interaction.guild.id
+    if guild_id not in guilds:
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
+        return
+
+    if user.id not in guilds[guild_id].users:
+        await interaction.response.send_message("This user has had no interactions yet.")
+        return
+    
+    action = action.lower()
+    if action not in ["give", "receive", "both"]:
+        await interaction.response.send_message("Invalid action. Must be one of: `give`, `receive`, `both`.")
+        return
+    
+    match action:
+        case "give":
+            if not guilds[guild_id].users[user.id].giving_allowed:
+                await interaction.response.send_message("This user is already denied from giving aura.")
+                return
+            guilds[guild_id].users[user.id].giving_allowed = False
+        case "receive":
+            if not guilds[guild_id].users[user.id].receiving_allowed:
+                await interaction.response.send_message("This user is already denied from receiving aura.")
+                return
+            guilds[guild_id].users[user.id].receiving_allowed = False
+        case "both":
+            if not guilds[guild_id].users[user.id].giving_allowed and not guilds[guild_id].users[user.id].receiving_allowed:
+                await interaction.response.send_message("This user is already denied from giving and receiving aura.")
+                return
+            guilds[guild_id].users[user.id].giving_allowed = False
+            guilds[guild_id].users[user.id].receiving_allowed = False
+
+    update_time_and_save(guild_id, guilds)
+    await interaction.response.send_message(f"Denied <@{user.id}> from {action}.")
+
+    if guilds[guild_id].log_channel_id is not None:
+        await log_aura_change(guild_id, user.id, interaction.user.id, "deny", None, None, None, action)
+
+@tree.command(name="allow", description="Allow a user to give or receive aura.")
+@app_commands.checks.has_permissions(manage_channels=True)
+@app_commands.describe(user="The user to allow actions from.", action="The action to allow. `give`, `receive` or `both`.")
+async def allow(interaction: discord.Interaction, user: discord.User, action: str):
+    guild_id = interaction.guild.id
+    if guild_id not in guilds:
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
+        return
+
+    if user.id not in guilds[guild_id].users:
+        await interaction.response.send_message("This user has had no interactions yet.")
+        return
+    
+    action = action.lower()
+    if action not in ["give", "receive", "both"]:
+        await interaction.response.send_message("Invalid action. Must be one of: `give`, `receive`, `both`.")
+        return
+
+    match action:
+        case "give":
+            if guilds[guild_id].users[user.id].giving_allowed:
+                await interaction.response.send_message("This user is already allowed to give aura.")
+                return
+            guilds[guild_id].users[user.id].giving_allowed = True
+        case "receive":
+            if guilds[guild_id].users[user.id].receiving_allowed:
+                await interaction.response.send_message("This user is already allowed to receive aura.")
+                return
+            guilds[guild_id].users[user.id].receiving_allowed = True
+        case "both":
+            if guilds[guild_id].users[user.id].giving_allowed and guilds[guild_id].users[user.id].receiving_allowed:
+                await interaction.response.send_message("This user is already allowed to give and receive aura.")
+                return
+            guilds[guild_id].users[user.id].giving_allowed = True
+            guilds[guild_id].users[user.id].receiving_allowed = True
+
+    update_time_and_save(guild_id, guilds)
+    await interaction.response.send_message(f"Allowed <@{user.id}> to {action}.")
+
+    if guilds[guild_id].log_channel_id is not None:
+        await log_aura_change(guild_id, user.id, interaction.user.id, "allow", None, None, None, action)
+
+
+@opt_group.command(name="in", description="Opt in to aura tracking.")
+async def opt_in(interaction: discord.Interaction):
+    guild_id = interaction.guild.id
+    if guild_id not in guilds:
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
+        return
+
+    if interaction.user.id not in guilds[guild_id].users:
+        guilds[guild_id].users[interaction.user.id] = User()
+
+    if guilds[guild_id].users[interaction.user.id].opted_in:
+        await interaction.response.send_message("You are already opted in.")
+        return
+
+    guilds[guild_id].users[interaction.user.id].opted_in = True
+    update_time_and_save(guild_id, guilds)
+    await interaction.response.send_message("You are now opted in.")
+
+@opt_group.command(name="out", description="Opt out of aura tracking.")
+async def opt_out(interaction: discord.Interaction):
+    guild_id = interaction.guild.id
+    if guild_id not in guilds:
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
+        return
+
+    if interaction.user.id not in guilds[guild_id].users:
+        guilds[guild_id].users[interaction.user.id] = User()
+
+    if not guilds[guild_id].users[interaction.user.id].opted_in:
+        await interaction.response.send_message("You are already opted out.")
+        return
+
+    guilds[guild_id].users[interaction.user.id].opted_in = False
+    update_time_and_save(guild_id, guilds)
+    await interaction.response.send_message("You are now opted out.")
 
 @emoji_group.command(name="add", description="Add an emoji to tracking.")
 @app_commands.checks.has_permissions(manage_channels=True)
