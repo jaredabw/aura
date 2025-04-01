@@ -11,6 +11,9 @@ from typing import Dict
 from dotenv import load_dotenv
 from collections import defaultdict, deque
 
+# need to test spam filters: 10 second cooldown and resetting on removal, and temp banning on spam
+
+
 # TODO: penalise and forgive: if penalised, gain half and lose double
 
 # TODO: emoji usage stats
@@ -101,7 +104,6 @@ def load_data(filename="data.json"):
                     last_update=guild.get("last_update", None)
                 )
 
-        populateCooldowns()
         return guilds
     except (FileNotFoundError, json.JSONDecodeError):
         with open(filename, "w") as file:
@@ -199,6 +201,7 @@ tree.add_command(emoji_group)
 tree.add_command(opt_group)
 
 guilds = load_data()
+populateCooldowns()
 log_cache = defaultdict(list)
 sliding_window: defaultdict[tuple, deque] = defaultdict(deque)
 temp_banned_users = defaultdict(list) # {guild_id: [user_id]}
