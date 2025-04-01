@@ -6,25 +6,25 @@ __**SETUP:**__
 3. Watch the leaderboard in the new channel, or run </leaderboard:1356179831288758387> to see it!
 
 __**AURA COMMANDS:**__  
-### Moderator Commands:  
+_*Moderator Commands*_:  
 - </setup:1356179831288758384> - Setup the bot for your server. Initialises the bot and optionally allows you to specify a channel to display the leaderboard. By default, ⭐ (+1) and 💀 (-1) are added. _Permission:_ `Manage Channels`.  
 - </delete:1356179831288758386> - Delete all bot data for this server. Removes all tracked data, including emojis, leaderboards, and logs. _Permission:_ `Administrator`.  
-- </changeaura> - Change a user's aura by a specified amount. Allows administrators to manually adjust a user's aura score by adding or subtracting points. Used for correcting errors or rewarding users. _Permission:_ `Administrator`.  
+- </changeaura:1356559832605392980> - Change a user's aura by a specified amount. Allows administrators to manually adjust a user's aura score by adding or subtracting points. Used for correcting errors or rewarding users. _Permission:_ `Administrator`.  
 - </updatechannel:1356179831288758385> - Update or add the leaderboard display channel. The leaderboard and emoji list will be resent in the new channel. Ensure the bot has permission to send messages in the specified channel. _Permission:_ `Manage Channels`.  
 - </logging:1356254831488139457> - Enable or disable aura change logging. Specify a channel to enable logging of aura changes. If the channel argument is empty, logging will be disabled. Logs are sent in batches every 10 seconds to avoid spamming. Ensure the bot has permission to send messages in the specified channel. _Permission:_ `Manage Channels`.  
 - </emoji add:1356180634602700863> - Add an emoji to tracking. Specify an emoji and its aura points impact (positive or negative). _Permission:_ `Manage Channels`.  
 - </emoji remove:1356180634602700863> - Remove an emoji from tracking. Stops tracking the specified emoji and removes its aura impact. _Permission:_ `Manage Channels`.  
 - </emoji update:1356180634602700863> - Update the points of a tracked emoji. For example, you can change ⭐ from +1 to +2. _Permission:_ `Manage Channels`.  
-- </deny> - Deny a user from giving or receiving aura. Restricts a user from giving, receiving, or both. Specify the action as `give`, `receive`, or `both`. _Permission:_ `Manage Channels`.  
-- </allow> - Allow a user to give or receive aura. Lifts restrictions on a user, allowing them to give, receive, or both. Specify the action as `give`, `receive`, or `both`. _Permission:_ `Manage Channels`.  
+- </deny:1356559832605392981> - Deny a user from giving or receiving aura. Restricts a user from giving, receiving, or both. Specify the action as `give`, `receive`, or `both`. _Permission:_ `Manage Channels`.  
+- </allow:1356559832605392982> - Allow a user to give or receive aura. Lifts restrictions on a user, allowing them to give, receive, or both. Specify the action as `give`, `receive`, or `both`. _Permission:_ `Manage Channels`.  
 
-### General Commands:  
+_*General Commands*_:  
 - </help:1356273217890816000> - This command. Gives information about the bot.  
 - </leaderboard:1356179831288758387> - Display the current leaderboard. The leaderboard in your specified channel updates automatically, but you can use this command to view it manually.  
-- </aura> - Check your or another user's aura and other info. If no user is specified, it displays your own info.  
+- </aura:1356559832605392979> - Check your or another user's aura and other info. If no user is specified, it displays your own info.  
 - </emoji list:1356180634602700863> - List all tracked emojis with their aura points impact.  
-- </opt in> - Opt in to aura tracking. Users are opted in by default.  
-- </opt out> - Opt out of aura tracking. Hides you from the leaderboard.  
+- </opt in:> - Opt in to aura tracking. Users are opted in by default.  
+- </opt out:> - Opt out of aura tracking. Hides you from the leaderboard.  
 
 __**INFO:**__
 - All reactions are counted when multiple people put the same reaction on a message.
