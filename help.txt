@@ -22,4 +22,4 @@ __**INFO:**__
 - Users can give a reaction whenever they like, but there is a 10 second cooldown between reactions that affect aura.
 - You require Manage Channels permissions to run commands that affect the setup.
 - Emoji must be standard emoji or emoji from this server.
-- If you are getting the error "A specified channel ID is invalid" when trying to use /setup or /updatechannel, try running the command on PC.
+- If you are getting the error "A specified channel ID is invalid" when trying to use /setup or /updatechannel, try running the command on PC. bnm
