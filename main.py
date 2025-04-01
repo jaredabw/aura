@@ -336,31 +336,22 @@ def get_emoji_list(guild_id: int, persistent=False) -> discord.Embed:
 
 def get_aura_tagline(aura: int):    
     aura_ranges = [
-        (-50, -40, "The embodiment of bad vibes."),
-        (-40, -30, "Existential crisis in human form."),
-        (-30, -20, "Cursed beyond redemption."),
-        (-20, -10, "Should come with a warning label."),
-        (-10, 0, "Dark clouds follow you everywhere."),
-        (0, 10, "Beginning to farm aura..."),
-        (10, 20, "Somewhere between good and bad vibes."),
-        (20, 30, "You’re on the up and up!"),
-        (30, 40, "A radiant beam of positivity."),
-        (40, 50, "Sunshine in human form."),
-        (50, 60, "Good vibes only, all the time."),
-        (60, 70, "Spreading joy wherever you go."),
-        (70, 80, "Like a walking, talking hug."),
-        (80, 90, "You're what happens when optimism meets the real world."),
-        (90, 100, "You radiate good energy like a solar panel."),
-        (100, 110, "The kind of person you want around when things get tough."),
-        (110, 120, "If good vibes were a currency, you'd be a billionaire."),
-        (120, 130, "You’re a walking positive influence."),
-        (130, 140, "Everyone’s better when you’re around."),
-        (140, 150, "Vibes so good they should be illegal."),
-        (150, 160, "You could probably cure bad moods with a smile."),
-        (160, 170, "You're a ray of sunshine in a sea of clouds."),
-        (170, 180, "People follow you just to feel better."),
-        (180, 190, "Like a personal therapist, but cooler."),
-        (190, float('inf'), "You are the definition of good vibes.")
+        (-40, -30, "Lost in the sauce."),
+        (-20, -20, "Forgot to mute their mic."),
+        (-20, -10, "Overshared after first date."),
+        (-10, 0, "Got up with their backpack open"),
+        (0, 10, "Novice aura farmer."),
+        (10, 20, "Autographed their own paper for Will Smith."),
+        (20, 30, "Could probably pull a goth girl GF."),
+        (30, 40, "Got that drip."),
+        (40, 50, "W collector."),
+        (50, 60, "Mogging everyone else"),
+        (60, 70, "The huzz calls him pookie."),
+        (70, 80, "Radiates protagonist energy."),
+        (80, 90, "Literally goated."),
+        (90, 100, "Figured out how to actually mew."),
+        (100, 110, "Almost maxed out."),
+        (110, float('inf'), "Won at life.")
     ]
     
     for lower, upper, tag in aura_ranges:
