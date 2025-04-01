@@ -14,6 +14,8 @@ from collections import defaultdict
 # i.e: user puts a positive reaction, removes positive reaction, puts a positive reaction (this is not counted due to cooldown), removes the positive reactions (this is counted and then removes aura from recipient)
 # not sure how to fix.
 
+# TODO: penalise and forgive: if penalised, gain half and lose double
+
 # TODO: emoji usage stats
 
 # TODO: reset tracking emojis without deleting the leaderboard
@@ -148,6 +150,7 @@ tree = app_commands.CommandTree(client)
 emoji_group = app_commands.Group(name="emoji", description="Commands for managing emojis.")
 opt_group = app_commands.Group(name="opt", description="Commands for managing aura participation.")
 tree.add_command(emoji_group)
+tree.add_command(opt_group)
 
 guilds = load_data()
 log_cache = defaultdict(list)
