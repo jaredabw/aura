@@ -11,9 +11,6 @@ from typing import Dict
 from dotenv import load_dotenv
 from collections import defaultdict, deque
 
-# need to test spam filters: 10 second cooldown and resetting on removal, and temp banning on spam
-
-
 # TODO: penalise and forgive: if penalised, gain half and lose double
 
 # TODO: emoji usage stats
@@ -304,11 +301,12 @@ async def update_sliding_window(guild_id: int, user_id: int) -> None:
     if len(sliding_window[(guild_id, user_id)]) > LIMIT_THRESHOLD:
         await handle_spam(guild_id, user_id)
 
-async def handle_spam(user_id: int, guild_id: int) -> None:
+async def handle_spam(guild_id: int, user_id: int) -> None:
     # deny the user from giving aura for LIMIT_PENALTY seconds
     temp_banned_users[guild_id].append(user_id)
     await client.get_user(user_id).send(f"You have been banned from giving aura in {client.get_guild(guild_id).name} for {LIMIT_PENALTY} seconds due to spamming reactions.")
-    await log_aura_change(guild_id, user_id, user_id, "spammed", None, None, None, None)
+    if guilds[guild_id].log_channel_id is not None:
+        await log_aura_change(guild_id, user_id, user_id, "spammed", None, None, None, None)
 
     # start a timer to allow the user to give aura again after LIMIT_PENALTY seconds
     await asyncio.sleep(LIMIT_PENALTY)
