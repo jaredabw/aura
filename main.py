@@ -11,6 +11,9 @@ from typing import Dict
 from dotenv import load_dotenv
 from collections import defaultdict, deque
 
+# TODO: increase ADDING_COOLDOWN and REMOVING_COOLDOWN back to 10 and implement for guild-user-recipient rather than just guild-user
+# TODO: or implement increasing cooldown if spamming? idk how to do this. probably hard
+
 # TODO: penalise and forgive: if penalised, gain half and lose double
 
 # TODO: emoji usage stats
@@ -36,8 +39,8 @@ LIMIT_INTERVAL = 60
 LIMIT_THRESHOLD = 15
 LIMIT_PENALTY = 300
 
-ADDING_COOLDOWN = 10 # how long to wait before allowing a user to add a new reaction and give aura
-REMOVING_COOLDOWN = 10 # how long to wait before allowing a user to remove a reaction and restore aura
+ADDING_COOLDOWN = 2 # how long to wait before allowing a user to add a new reaction and give aura
+REMOVING_COOLDOWN = 2 # how long to wait before allowing a user to remove a reaction and restore aura
 
 with open("help.txt", "r", encoding="utf-8") as help_file:
     HELP_TEXT = help_file.read()
