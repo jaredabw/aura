@@ -307,7 +307,7 @@ async def update_sliding_window(guild_id: int, user_id: int) -> None:
 async def handle_spam(guild_id: int, user_id: int) -> None:
     # deny the user from giving aura for LIMIT_PENALTY seconds
     temp_banned_users[guild_id].append(user_id)
-    await client.get_user(user_id).send(f"You have been banned from giving aura in {client.get_guild(guild_id).name} for {LIMIT_PENALTY} seconds due to spamming reactions.")
+    await client.get_user(user_id).send(f"You have been temporarily banned from giving aura in {client.get_guild(guild_id).name} for {LIMIT_PENALTY} seconds due to spamming reactions.")
     if guilds[guild_id].log_channel_id is not None:
         await log_aura_change(guild_id, user_id, user_id, "spammed", None, None, None, None)
 
@@ -326,7 +326,7 @@ async def log_aura_change(guild_id: int, author_id: int, user_id: int, text: str
         action_str = "give and receive" if action == "both" else action
         log_message = f"<@{user_id}> allowed <@{author_id}> to {action_str} aura."
     elif text == "spammed":
-        log_message = f"<@{user_id}> was banned from giving aura for {LIMIT_PENALTY} seconds due to spamming reactions."
+        log_message = f"<@{user_id}> was temporarily banned from giving aura for {LIMIT_PENALTY} seconds due to spamming reactions."
     else:
         action = "added" if adding else "removed"
 

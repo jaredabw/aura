@@ -32,4 +32,5 @@ __**INFO:**__
 - You require Manage Channels permissions to run commands that affect the setup.
 - Emoji must be standard emoji or emoji from this server.
 - Implements two spam filters: users can only add aura every 10 seconds, or after restoring aura (removing their reaction) AND users can only attempt a certain number of reaction events per 60 seconds. These values are soon to be configurable.
+- Unfortunately it is very difficult to determine when a user is legitimate or spamming, so mods must manually punish with /deny too.
 - If you are getting the error "A specified channel ID is invalid" when trying to use /setup or /updatechannel, try running the command on PC.
