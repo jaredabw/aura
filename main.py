@@ -336,8 +336,8 @@ def get_emoji_list(guild_id: int, persistent=False) -> discord.Embed:
 
 def get_aura_tagline(aura: int):    
     aura_ranges = [
-        (-40, -30, "Lost in the sauce."),
-        (-20, -20, "Forgot to mute their mic."),
+        (-float('inf'), -30, "Actually cooked."),
+        (-30, -20, "Forgot to mute their mic."),
         (-20, -10, "Overshared after first date."),
         (-10, 0, "Got up with their backpack open"),
         (0, 10, "Novice aura farmer."),
