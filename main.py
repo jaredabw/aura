@@ -299,10 +299,10 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
 async def update_sliding_window(guild_id: int, user_id: int) -> None:
     current_time = time.time()
     sliding_window[(guild_id, user_id)].append(current_time)
-    while sliding_window[(user_id, guild_id)] and sliding_window[(user_id, guild_id)][0] < current_time - LIMIT_INTERVAL:
-        sliding_window[(user_id, guild_id)].popleft()
-    if len(sliding_window[(user_id, guild_id)]) > LIMIT_THRESHOLD:
-        await handle_spam(user_id, guild_id)
+    while sliding_window[(guild_id, user_id)] and sliding_window[(guild_id, user_id)][0] < current_time - LIMIT_INTERVAL:
+        sliding_window[(guild_id, user_id)].popleft()
+    if len(sliding_window[(guild_id, user_id)]) > LIMIT_THRESHOLD:
+        await handle_spam(guild_id, user_id)
 
 async def handle_spam(user_id: int, guild_id: int) -> None:
     # deny the user from giving aura for LIMIT_PENALTY seconds
