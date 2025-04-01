@@ -390,8 +390,8 @@ def get_user_aura(guild_id: int, user_id: int) -> discord.Embed:
     else:
         embed.description = f"<@{user_id}> is opted out of aura tracking."
 
-    give = "Allowed" if user.giving_allowed else "Not allowed"
-    receive = "Allowed" if user.receiving_allowed else "Not allowed"
+    give = "Allowed" if user.giving_allowed else "NOT allowed"
+    receive = "Allowed" if user.receiving_allowed else "NOT allowed"
     embed.set_footer(text=f"{give} to give aura. {receive} to receive aura.")
 
     return embed
