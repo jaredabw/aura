@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Dict
 from dotenv import load_dotenv
 from collections import defaultdict, deque
+from enum import Enum
 
 # TODO: fix command permissions 
 
@@ -48,6 +49,32 @@ REMOVING_COOLDOWN = ADDING_COOLDOWN # how long to wait before allowing a user to
 
 with open("help.txt", "r", encoding="utf-8") as help_file:
     HELP_TEXT = help_file.read()
+
+class ReactionEvent(Enum):
+    ADD = ("add", "adding", "added", True)
+    REMOVE = ("remove", "removing", "removed", False)
+
+    def __init__(self, base: str, present: str, past: str, is_add: bool):
+        self.base = base
+        self.present = present
+        self.past = past
+        self.is_add = is_add
+
+    def __bool__(self):
+        return self.is_add
+
+class LogEvent(Enum):
+    MANUAL = "manual"
+    SPAMMING = "spamming"
+    DENY_GIVING = "giving"
+    DENY_RECEIVING = "receiving"
+    DENY_BOTH = "giving and receiving"
+    ALLOW_GIVING = "give"
+    ALLOW_RECEIVING = "receive"
+    ALLOW_BOTH = "give and receive"
+
+    def __str__(self):
+        return self.value
 
 @dataclass
 class User:
@@ -153,45 +180,7 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
 
 def update_time_and_save(guild_id, guilds: Dict[int, Guild]):
     guilds[guild_id].last_update = int(time.time())
-    # populateCooldowns()
     save_data(guilds)
-
-cooldowns: dict[tuple[int], UserCooldowns] = defaultdict(dict)
-# this lives in memory as it is not super important to be persistent
-# if the bot restarted we have a bigger problem anyway
-
-def ensure_cooldown(guild_id: int, user_id: int, author_id: int) -> None:
-    '''Ensure a cooldown object exists for a cooldown tuple'''
-    if (guild_id, user_id, author_id) not in cooldowns:
-        cooldowns[(guild_id, user_id, author_id)] = UserCooldowns()
-
-def start_cooldown(guild_id: int, user_id: int, author_id: int, action: str) -> None:
-    '''Start the cooldown for a user'''
-    ensure_cooldown(guild_id, user_id, author_id)
-    if action == "add":
-        cooldowns[(guild_id, user_id, author_id)].add_cooldown_began = int(time.time())
-    elif action == "remove":
-        cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began = int(time.time())
-    else: raise ValueError("Invalid action. Must be 'add' or 'remove'.")
-
-def end_cooldown(guild_id: int, user_id: int, author_id: int, action: str) -> None:
-    '''End the cooldown early for a user'''
-    ensure_cooldown(guild_id, user_id, author_id)
-    if action == "add":
-        cooldowns[(guild_id, user_id, author_id)].add_cooldown_began = 0
-    elif action == "remove":
-        cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began = 0
-    else: raise ValueError("Invalid action. Must be 'add' or 'remove'.")
-
-def is_cooldown_complete(guild_id: int, user_id: int, author_id: int, action: str) -> bool:
-    '''Check if the cooldown is complete for a user'''
-    ensure_cooldown(guild_id, user_id, author_id)
-    # does not need to set it back to 0 because if the user isnt on cooldown anymore it makes no difference when checking: will still be true either way.
-    if action == "add":
-        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].add_cooldown_began >= ADDING_COOLDOWN
-    elif action == "remove":
-        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began >= REMOVING_COOLDOWN
-    else: raise ValueError("Invalid action. Must be 'add' or 'remove'.")
 
 intents = discord.Intents.default()
 intents.members = True # required for client.get_user() and client.fetch_message().author
@@ -205,7 +194,6 @@ tree.add_command(emoji_group)
 tree.add_command(opt_group)
 
 guilds = load_data()
-# populateCooldowns()
 log_cache = defaultdict(list)
 rolling_add: defaultdict[tuple, deque] = defaultdict(deque)
 rolling_remove: defaultdict[tuple, deque] = defaultdict(deque)
@@ -227,17 +215,51 @@ async def on_ready():
 
     print(f"Logged in as {client.user}")
 
+cooldowns: dict[tuple[int], UserCooldowns] = defaultdict(dict)
+# this lives in memory as it is not super important to be persistent
+# if the bot restarted we have a bigger problem anyway
+
+def ensure_cooldown(guild_id: int, user_id: int, author_id: int) -> None:
+    '''Ensure a cooldown object exists for a cooldown tuple'''
+    if (guild_id, user_id, author_id) not in cooldowns:
+        cooldowns[(guild_id, user_id, author_id)] = UserCooldowns()
+
+def start_cooldown(guild_id: int, user_id: int, author_id: int, event: ReactionEvent) -> None:
+    '''Start the cooldown for a user'''
+    ensure_cooldown(guild_id, user_id, author_id)
+    if event.is_add:
+        cooldowns[(guild_id, user_id, author_id)].add_cooldown_began = int(time.time())
+    else:
+        cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began = int(time.time())
+
+def end_cooldown(guild_id: int, user_id: int, author_id: int, event: ReactionEvent) -> None:
+    '''End the cooldown early for a user'''
+    ensure_cooldown(guild_id, user_id, author_id)
+    if event.is_add:
+        cooldowns[(guild_id, user_id, author_id)].add_cooldown_began = 0
+    else:
+        cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began = 0
+
+def is_cooldown_complete(guild_id: int, user_id: int, author_id: int, event: ReactionEvent) -> bool:
+    '''Check if the cooldown is complete for a user'''
+    ensure_cooldown(guild_id, user_id, author_id)
+    # does not need to set it back to 0 because if the user isnt on cooldown anymore it makes no difference when checking: will still be true either way.
+    if event.is_add:
+        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].add_cooldown_began >= ADDING_COOLDOWN
+    else:
+        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began >= REMOVING_COOLDOWN
+
 @client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
-    await parse_payload(payload, adding=True)
+    await parse_payload(payload, ReactionEvent.ADD)
 
 @client.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
     payload.message_author_id = (await client.get_channel(payload.channel_id).fetch_message(payload.message_id)).author.id
     # message_author_id is not in the payload on removal, so we need to fetch the message to get it
-    await parse_payload(payload, adding=False)
+    await parse_payload(payload, ReactionEvent.REMOVE)
 
-async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -> None:
+async def parse_payload(payload: discord.RawReactionActionEvent, event: ReactionEvent) -> None:
     if payload.guild_id in guilds and payload.user_id != payload.message_author_id and not client.get_user(payload.message_author_id).bot:
         emoji = str(payload.emoji)
         guild_id = payload.guild_id
@@ -264,26 +286,24 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
             if not guilds[guild_id].users[user_id].opted_in or not guilds[guild_id].users[author_id].opted_in:
                 return
 
-            await update_sliding_window(guild_id, user_id, "add" if adding else "remove")
+            await update_rolling_timelines(guild_id, user_id, event)
 
             # check if the user is on cooldown
-            if adding and not is_cooldown_complete(guild_id, user_id, author_id, "add"):
-                return
-            elif not adding and not is_cooldown_complete(guild_id, user_id, author_id, "remove"):
+            if not is_cooldown_complete(guild_id, user_id, author_id, event):
                 return
             
-            # reset cooldowns
-            if adding:
-                start_cooldown(guild_id, user_id, author_id, "add")
-                end_cooldown(guild_id, user_id, author_id, "remove")
-            elif not adding:
-                start_cooldown(guild_id, user_id, author_id, "remove")
-                end_cooldown(guild_id, user_id, author_id, "add")
+            opposite_event = ReactionEvent.REMOVE if event.is_add else ReactionEvent.ADD
+            # reset cooldowns and get vals for next step
+            if event.is_add:
+                start_cooldown(guild_id, user_id, author_id, event)
+                end_cooldown(guild_id, user_id, author_id, opposite_event)
 
-            if adding:
                 points = guilds[guild_id].reactions[emoji].points
                 one = 1
-            else: # removing
+            else:
+                start_cooldown(guild_id, user_id, author_id, event)
+                end_cooldown(guild_id, user_id, author_id, opposite_event)
+
                 points = -guilds[guild_id].reactions[emoji].points
                 one = -1
 
@@ -297,19 +317,17 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
                 guilds[guild_id].users[author_id].num_neg_received += one
 
             if guilds[guild_id].log_channel_id is not None:
-                await log_aura_change(guild_id, author_id, user_id, emoji, guilds[guild_id].reactions[emoji].points, adding, f"https://discord.com/channels/{guild_id}/{payload.channel_id}/{payload.message_id}")
+                log_aura_change(guild_id, user_id, author_id, event, emoji, points, f"https://discord.com/channels/{guild_id}/{payload.channel_id}/{payload.message_id}")
 
             update_time_and_save(guild_id, guilds)
 
-async def update_sliding_window(guild_id: int, user_id: int, event: str) -> None:
+async def update_rolling_timelines(guild_id: int, user_id: int, event: ReactionEvent) -> None:
     current_time = time.time()
 
-    if event == "add":
+    if event.is_add:
         rolling = rolling_add # uses mutability of dict. rolling is just a pointer
-    elif event == "remove":
-        rolling = rolling_remove
     else:
-        raise ValueError("Invalid event. Must be 'add' or 'remove'.")
+        rolling = rolling_remove
 
     rolling[(guild_id, user_id)].append(current_time)
 
@@ -333,40 +351,45 @@ async def handle_spam(guild_id: int, user_id: int) -> None:
     temp_banned_users[guild_id].append(user_id)
     await client.get_user(user_id).send(f"You have been temporarily banned for {LIMIT_PENALTY} seconds from giving aura in {client.get_guild(guild_id).name} due to spamming reactions.")
     if guilds[guild_id].log_channel_id is not None:
-        await log_aura_change(guild_id, user_id, user_id, "spammed", None, None, None, None)
+        log_event(guild_id, user_id, user_id, LogEvent.SPAMMING)
 
     # start a timer to allow the user to give aura again after LIMIT_PENALTY seconds
     await asyncio.sleep(LIMIT_PENALTY)
     temp_banned_users[guild_id].remove(user_id)
 
-async def log_aura_change(guild_id: int, author_id: int, user_id: int, text: str, points: int, adding: bool, url: str, action: str = None) -> None:
-    # i want to batch the messages to avoid spamming the channel
-    if text == "manual":
-        log_message = f"<@{user_id}> manually changed aura of <@{author_id}> ({'+' if points > 0 else ''}{points} points)"
-    elif text == "deny":
-        action_str = "giving" if action == "give" else "receiving" if action == "receive" else "giving and receiving"
-        log_message = f"<@{user_id}> denied <@{author_id}> from {action_str} aura."
-    elif text == "allow":
-        action_str = "give and receive" if action == "both" else action
-        log_message = f"<@{user_id}> allowed <@{author_id}> to {action_str} aura."
-    elif text == "spammed":
-        log_message = f"<@{user_id}> was temporarily banned for {LIMIT_PENALTY} seconds from giving aura due to spamming reactions."
+def log_aura_change(guild_id: int, recipient_id: int, user_id: int, event: ReactionEvent, emoji: str, points: int, url: str) -> None:
+    sign = ""
+    if event.is_add:
+        if points > 0:
+            sign = "+"
+        elif points < 0:
+            sign = "-"
     else:
-        action = "added" if adding else "removed"
-
-        if points > 0 and adding:
-            sign = "+"
-        elif points > 0 and not adding:
+        if points > 0:
             sign = "-"
-        elif points < 0 and adding:
-            sign = "-"
-        elif points < 0 and not adding:
+        elif points < 0:
             sign = "+"
-        else:
-            sign = "error"
-        points = abs(points)
-        log_message = f"<@{user_id}> [{action}]({url}) {text} {'to' if adding else 'from'} <@{author_id}> ({sign}{points} points)"
 
+    connective = "to" if event.is_add else "from"
+    log_message = f"<@{user_id}> [{event.past}]({url}) {emoji} {connective} <@{recipient_id}> ({sign}{abs(points)} points)"
+
+    log_cache[guild_id].append(log_message)
+
+def log_event(guild_id: int, recipient_id: int, user_id: int, event: LogEvent, points: int=None) -> None:
+    match event:
+        case LogEvent.MANUAL:
+            if points is None:
+                raise ValueError("Points must be provided for manual changes.")
+            log_message = f"<@{user_id}> manually changed aura of <@{recipient_id}> ({'+' if points > 0 else ''}{points} points)"
+        case LogEvent.SPAMMING:
+            log_message = f"<@{user_id}> was temporarily banned for {LIMIT_PENALTY} seconds from giving aura due to spamming reactions."
+        case LogEvent.DENY_GIVING | LogEvent.DENY_RECEIVING | LogEvent.DENY_BOTH:
+            log_message = f"<@{user_id}> denied <@{recipient_id}> from {str(event)} aura."
+        case LogEvent.ALLOW_GIVING | LogEvent.ALLOW_RECEIVING | LogEvent.ALLOW_BOTH:
+            log_message = f"<@{user_id}> allowed <@{recipient_id}> to {str(event)} aura."
+        case _:
+            raise ValueError()
+        
     log_cache[guild_id].append(log_message)
 
 @tasks.loop(seconds=LOGGING_INTERVAL)
@@ -659,7 +682,7 @@ async def change_aura(interaction: discord.Interaction, user: discord.User, amou
     guilds[guild_id].users[user.id].aura += amount
     # add to log
     if guilds[guild_id].log_channel_id is not None:
-        await log_aura_change(guild_id, user.id, interaction.user.id, "manual", amount, None, None)
+        log_event(guild_id, user.id, interaction.user.id, LogEvent.MANUAL, amount)
     update_time_and_save(guild_id, guilds)
     await interaction.response.send_message(f"Changed <@{user.id}>'s aura by {amount}.")
 
@@ -700,10 +723,12 @@ async def deny(interaction: discord.Interaction, user: discord.User, action: str
             guilds[guild_id].users[user.id].receiving_allowed = False
 
     update_time_and_save(guild_id, guilds)
-    await interaction.response.send_message(f"Denied <@{user.id}> from {action}.")
+
+    event = LogEvent.DENY_GIVING if action == "give" else LogEvent.DENY_RECEIVING if action == "receive" else LogEvent.DENY_BOTH
+    await interaction.response.send_message(f"Denied <@{user.id}> from {event} aura.")
 
     if guilds[guild_id].log_channel_id is not None:
-        await log_aura_change(guild_id, user.id, interaction.user.id, "deny", None, None, None, action)
+        log_event(guild_id, user.id, interaction.user.id, event)
 
 @tree.command(name="allow", description="Allow a user to give or receive aura.")
 @app_commands.checks.has_permissions(manage_channels=True)
@@ -742,11 +767,12 @@ async def allow(interaction: discord.Interaction, user: discord.User, action: st
             guilds[guild_id].users[user.id].receiving_allowed = True
 
     update_time_and_save(guild_id, guilds)
-    await interaction.response.send_message(f"Allowed <@{user.id}> to {action}.")
+
+    event = LogEvent.ALLOW_GIVING if action == "give" else LogEvent.ALLOW_RECEIVING if action == "receive" else LogEvent.ALLOW_BOTH
+    await interaction.response.send_message(f"Allowed <@{user.id}> to {event} aura.")
 
     if guilds[guild_id].log_channel_id is not None:
-        await log_aura_change(guild_id, user.id, interaction.user.id, "allow", None, None, None, action)
-
+        log_event(guild_id, user.id, interaction.user.id, event)
 
 @opt_group.command(name="in", description="Opt in to aura tracking.")
 async def opt_in(interaction: discord.Interaction):
