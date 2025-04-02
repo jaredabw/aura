@@ -539,7 +539,7 @@ async def handle_spam(guild_id: int, user_id: int) -> None:
     user_id: `int`
         The ID of the user to tempban.'''
     temp_banned_users[guild_id].append(user_id)
-    await client.get_user(user_id).send(f"You have been temporarily banned for {LIMIT_PENALTY} seconds from giving aura in {client.get_guild(guild_id).name} due to spamming reactions.")
+    await client.get_user(user_id).send(f"<@{user_id}\nYou have been temporarily banned for {LIMIT_PENALTY} seconds from giving aura in {client.get_guild(guild_id).name} due to spamming reactions.")
     if guilds[guild_id].log_channel_id is not None:
         log_event(guild_id, user_id, user_id, LogEvent.SPAMMING)
 
