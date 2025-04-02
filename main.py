@@ -12,17 +12,21 @@ from emoji import is_emoji
 from collections import defaultdict, deque
 from enum import Enum
 
+# TODO: customisable leaderboard: all time / this week / this month
+# 1. maintain daily/hourly leaderboard snapshots: copy whole json file and name with timestamp
+# 2. keep for a month and then delete
+# 3. all time leaderboard: current score
+# 4. weekly leaderboard: current score - last week's score
+# 5. monthly leaderboard: current score - last month's score
+
 # TODO: penalise and forgive: if penalised, gain half and lose double
-# TODO: implement increasing cooldown if spamming? idk how to do this. probably hard
 
-# TODO: emoji usage stats
-
-# TODO: reset tracking emojis without deleting the leaderboard
-# TODO: reset leaderboard without deleting the emojis
+# TODO: /clear emojis, without deleting the leaderboard
+# TODO: /clear leaderboard, without deleting the emojis
 
 # TODO: add pagination to leaderboard and emoji list
 # TODO: aura based role rewards
-# TODO: customisable leaderboard: top all time / top this week / top this month
+# TODO: emoji usage stats
 # TODO: multi lang support
 
 load_dotenv("token.env")
