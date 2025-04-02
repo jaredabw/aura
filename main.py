@@ -1309,7 +1309,7 @@ async def config_view(interaction: discord.Interaction):
     embed = discord.Embed(color=0x453f5e)
     embed.set_author(name="Aura Configuration", icon_url=client.user.avatar.url)
     embed.description = f"__Long limit:__\nA user can add/remove **{guilds[guild_id].limits.threshold_long}** reactions per **{guilds[guild_id].limits.interval_long}** seconds.\n"
-    embed.description += f"__Short limit:__\nA user can add/remove **{guilds[guild_id].limits.threshold_short}** reactions per **{guilds[guild_id].limits.interval_short}** seconds.\n"
+    embed.description += f"__Short limit:__\nA user can add/remove **{guilds[guild_id].limits.threshold_short}** reactions per **{guilds[guild_id].limits.interval_short}** seconds.\n\n"
     embed.description += f"If a user breaches the above limits, they are prevented from contributing aura for **{guilds[guild_id].limits.penalty}** seconds.\n\n"
     embed.description += f"__Cooldowns:__\nA user can add an aura-contributing reaction every **{guilds[guild_id].limits.adding_cooldown}** seconds and remove an aura-contributing reaction every **{guilds[guild_id].limits.removing_cooldown}** seconds.\n\n"
     embed.description += f"Adjust these values using </config edit:1357013094781685821>. Make sure you know what you're doing."
@@ -1319,7 +1319,7 @@ async def config_view(interaction: discord.Interaction):
 @config_group.command(name="edit", description="Edit the bot's configuration.")
 @app_commands.guild_only()
 @app_commands.describe(key="The configuration value to edit.", value="The new value for the configuration key.")
-async def config_edit(interaction: discord.Interaction, key: Literal["Long interval", "Long threshold", "Short interval", "Short threshold", "Tempban length", "Adding cooldown", "Removing cooldown"], value: int):
+async def config_edit(interaction: discord.Interaction, key: Literal["Long threshold", "Long interval", "Short threshold", "Short interval", "Tempban length", "Adding cooldown", "Removing cooldown"], value: int):
     if not await check_user_permissions(interaction, "manage_channels"): return
     guild_id = interaction.guild.id
 
