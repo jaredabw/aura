@@ -874,6 +874,8 @@ async def update_leaderboards(skip=False):
                         await board_msg.edit(embed=get_leaderboard(guild_id, True))
                     except discord.NotFound:
                         pass
+                    except discord.Forbidden:
+                        print(f"Forbidden to send leaderboard to channel {guild.msgs_channel_id} in guild {guild_id}.")
 
 async def update_info(guild_id: int):
     '''Update the emoji list for a guild.
@@ -976,8 +978,12 @@ async def update_channel(interaction: discord.Interaction, channel: discord.Text
         return
 
     guilds[guild_id].msgs_channel_id = channel.id
-    guilds[guild_id].info_msg_id = (await channel.send(embed=get_emoji_list(guild_id, True))).id
-    guilds[guild_id].board_msg_id = (await channel.send(embed=get_leaderboard(guild_id, True))).id
+    try:
+        guilds[guild_id].info_msg_id = (await channel.send(embed=get_emoji_list(guild_id, True))).id
+        guilds[guild_id].board_msg_id = (await channel.send(embed=get_leaderboard(guild_id, True))).id
+    except discord.Forbidden:
+        await interaction.response.send_message("I don't have permission to send messages in that channel. Please choose a different channel or update my permissions.")
+        return
 
     update_time_and_save(guild_id, guilds)
     await interaction.response.send_message(f"Channel updated. Leaderboard will be displayed in {channel.mention}.")
