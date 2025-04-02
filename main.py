@@ -12,8 +12,6 @@ from emoji import is_emoji
 from collections import defaultdict, deque
 from enum import Enum
 
-# TODO: confirmation checks for /delete, /clear users, /clear emojis and /config reset 
-
 # TODO: customisable leaderboard: all time / this week / this month
 # 1. maintain daily/hourly leaderboard snapshots: copy whole json file and name with timestamp
 # 2. keep for a month and then delete
@@ -105,7 +103,7 @@ class User:
     aura: `int`
         The user's aura score.
     aura_contribution: `int`
-        The user's total aura contribution to other users.
+        The user's net aura contribution to other users.
     num_pos_given: `int`
         The number of positive reactions the user has given.
     num_pos_received: `int`
@@ -839,7 +837,7 @@ def get_user_aura(guild_id: int, user_id: int) -> discord.Embed:
     if user.opted_in:
         embed.description = f"<@{user_id}> has **{user.aura}** aura.\n"
         embed.description += f"*{tag}*\n\n"
-        embed.description += f"**{user.aura_contribution}** total aura contribution.\n\n"
+        embed.description += f"**{user.aura_contribution}** net aura contribution.\n\n"
         embed.description += f"**{user.num_pos_given}** positive reactions given.\n"
         embed.description += f"**{user.num_pos_received}** positive reactions received.\n"
         embed.description += f"**{user.num_neg_given}** negative reactions given.\n"
