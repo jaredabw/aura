@@ -932,9 +932,9 @@ async def help_command(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, ephemeral=True)
     await interaction.followup.send(embed=embed2, ephemeral=True)
 
-@tree.command(name="setup", description="Setup the bot. (Optional) Displays the leaderboard in the given channel.")
+@tree.command(name="setup", description="Setup the bot.")
 @app_commands.guild_only()
-@app_commands.describe(channel="The channel to display the leaderboard in.")
+@app_commands.describe(channel="(Recommended) The channel to display the leaderboard in.")
 async def setup(interaction: discord.Interaction, channel: discord.TextChannel = None):
     if not await check_user_permissions(interaction, "manage_channels"): return
 
