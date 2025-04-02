@@ -6,13 +6,11 @@ import os
 from discord import app_commands
 from discord.ext import tasks
 from dataclasses import dataclass, field
-from typing import Dict, Literal, Callable, Any
+from typing import Dict, Literal
 from dotenv import load_dotenv
 from emoji import is_emoji
 from collections import defaultdict, deque
 from enum import Enum
-
-# TODO: fix command permissions 
 
 # TODO: penalise and forgive: if penalised, gain half and lose double
 # TODO: implement increasing cooldown if spamming? idk how to do this. probably hard
@@ -49,6 +47,26 @@ with open("help.txt", "r", encoding="utf-8") as help_file:
     HELP_TEXT = help_file.read()
 
 class ReactionEvent(Enum):
+    '''Enumeration that represents the type of reaction event: `ADD` or `REMOVE`.
+
+    Members
+    --------
+    ADD: `ReactionEvent`
+        Represents the addition of a reaction.
+    REMOVE: `ReactionEvent`
+        Represents the removal of a reaction.
+
+    Attributes
+    ----------
+    base: `str`
+        The infinitive form of the event.
+    present: `str`
+        The present participle form of the event.
+    past: `str`
+        The past participle form of the event.
+    is_add: `bool`
+        Whether the event is an addition or removal of a reaction.
+    '''
     ADD = ("add", "adding", "added", True)
     REMOVE = ("remove", "removing", "removed", False)
 
@@ -62,6 +80,19 @@ class ReactionEvent(Enum):
         return self.is_add
 
 class LogEvent(Enum):
+    '''Enumeration that represents the type of log event.
+    
+    Members
+    --------
+    MANUAL: `LogEvent`
+        Represents a manual change to a user's aura.
+    SPAMMING: `LogEvent`
+        Represents a user being temporarily banned for spamming reactions.
+    DENY_GIVING | DENY_RECEIVING | DENY_BOTH: `LogEvent`
+        Represents a user being denied from giving or receiving aura.
+    ALLOW_GIVING | ALLOW_RECEIVING | ALLOW_BOTH: `LogEvent`
+        Represents a user being allowed to give or receive aura.
+    '''
     MANUAL = "manual"
     SPAMMING = "spamming"
     DENY_GIVING = "giving"
@@ -76,6 +107,28 @@ class LogEvent(Enum):
 
 @dataclass
 class User:
+    '''Class that represents a user in a guild.
+    
+    Attributes
+    ----------
+    aura: `int`
+        The user's aura score.
+    aura_contribution: `int`
+        The user's total aura contribution to other users.
+    num_pos_given: `int`
+        The number of positive reactions the user has given.
+    num_pos_received: `int`
+        The number of positive reactions the user has received.
+    num_neg_given: `int`
+        The number of negative reactions the user has given.
+    num_neg_received: `int`
+        The number of negative reactions the user has received.
+    opted_in: `bool`
+        Whether the user has opted in to aura tracking. Defaults to `True`.
+    giving_allowed: `bool`
+        Whether the user is allowed to give aura. Defaults to `True`.
+    receiving_allowed: `bool`
+        Whether the user is allowed to receive aura. Defaults to `True`.'''
     aura: int = 0
     aura_contribution: int = 0
     num_pos_given: int = 0
@@ -88,15 +141,47 @@ class User:
 
 @dataclass
 class UserCooldowns:
+    '''Class that represents the cooldowns for a user in a guild.
+    
+    Attributes
+    ----------
+    add_cooldown_began: `int`
+        The timestamp when the add cooldown began.
+    remove_cooldown_began: `int`
+        The timestamp when the remove cooldown began.'''
     add_cooldown_began: int = 0
     remove_cooldown_began: int = 0
 
 @dataclass
 class EmojiReaction:
+    '''Class that represents an emoji reaction in a guild.
+    
+    Attributes
+    ----------
+    points: `int`
+        The number of aura points the reaction gives or takes away.'''
     points: int = 0
 
 @dataclass
 class Guild:
+    '''Class that represents a guild.
+    
+    Attributes
+    ----------
+    users: `Dict[int, User]`
+        A dictionary of users in the guild, where the key is the user ID and the value is a `User` object.
+    reactions: `Dict[str, EmojiReaction]`
+        A dictionary of emoji reactions in the guild, where the key is the emoji and the value is an `EmojiReaction` object.
+    info_msg_id: `int`
+        The ID of the message that contains the emoji list.
+    board_msg_id: `int`
+        The ID of the message that contains the leaderboard.
+    msgs_channel_id: `int`
+        The ID of the channel where the leaderboard and emoji list are displayed.
+    log_channel_id: `int`
+        The ID of the channel where aura changes are logged.
+    last_update: `int`
+        The timestamp of the last update to the guild data.'''
     users: Dict[int, User] = field(default_factory=dict)
     reactions: Dict[str, EmojiReaction] = field(default_factory=dict)
     info_msg_id: int = None
@@ -106,6 +191,14 @@ class Guild:
     last_update: int = None
 
 def load_data(filename="data.json"):
+    '''Load the guild data from a JSON file.
+    
+    If the file does not exist or is empty, create a new file with an empty guilds dictionary.
+    
+    Parameters
+    ----------
+    filename: `str`, optional
+        The name of the file to load the data from. Defaults to "data.json".'''
     try:
         with open(filename, "r") as file:
             raw_data: dict[str, dict[int, dict]] = json.load(file)
@@ -143,6 +236,14 @@ def load_data(filename="data.json"):
         return {}
 
 def save_data(guilds: Dict[int, Guild], filename="data.json"):
+    '''Save the guild data to a JSON file.
+    
+    Parameters
+    ----------
+    guilds: `Dict[int, Guild]`
+        A dictionary of guilds, where the key is the guild ID and the value is a `Guild` object.
+    filename: `str`, optional
+        The name of the file to save the data to. Defaults to "data.json".'''
     # Convert the guilds data back to a dict to save in JSON
     save_data = {"guilds": {}}
 
@@ -179,7 +280,15 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
     with open(filename, "w") as file:
         json.dump(save_data, file, indent=4)
 
-def update_time_and_save(guild_id, guilds: Dict[int, Guild]):
+def update_time_and_save(guild_id: int, guilds: Dict[int, Guild]):
+    '''Update the last update time for a guild and save the data.
+    
+    Parameters
+    ----------
+    guild_id: `int`
+        The ID of the guild to update.
+    guilds: `Dict[int, Guild]`
+        A dictionary of guilds, where the key is the guild ID and the value is a `Guild` object.'''
     guilds[guild_id].last_update = int(time.time())
     save_data(guilds)
 
@@ -200,8 +309,85 @@ rolling_add: defaultdict[tuple, deque] = defaultdict(deque)
 rolling_remove: defaultdict[tuple, deque] = defaultdict(deque)
 temp_banned_users = defaultdict(list) # {guild_id: [user_id]}
 
+cooldowns: dict[tuple[int], UserCooldowns] = defaultdict(dict)
+# this lives in memory as it is not super important to be persistent
+# if the bot restarted we have a bigger problem anyway
+
+def ensure_cooldown(guild_id: int, user_id: int, author_id: int) -> None:
+    '''Ensure a cooldown object exists for a guild-user-author group.
+    
+    Parameters
+    ----------
+    guild_id: `int`
+        The ID of the guild.
+    user_id: `int`
+        The ID of the user giving or removing the reaction.
+    author_id: `int`
+        The ID of the user receiving the reaction.'''
+    if (guild_id, user_id, author_id) not in cooldowns:
+        cooldowns[(guild_id, user_id, author_id)] = UserCooldowns()
+
+def start_cooldown(guild_id: int, user_id: int, author_id: int, event: ReactionEvent) -> None:
+    '''Start the event cooldown for a guild-user-author.
+    
+    Parameters
+    ----------
+    guild_id: `int`
+        The ID of the guild.
+    user_id: `int`
+        The ID of the user giving or removing the reaction.
+    author_id: `int`
+        The ID of the user receiving the reaction.
+    event: `ReactionEvent`
+        The event type that triggered the cooldown.'''
+    ensure_cooldown(guild_id, user_id, author_id)
+    if event.is_add:
+        cooldowns[(guild_id, user_id, author_id)].add_cooldown_began = int(time.time())
+    else:
+        cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began = int(time.time())
+
+def end_cooldown(guild_id: int, user_id: int, author_id: int, event: ReactionEvent) -> None:
+    '''End the event cooldown early for a guild-user-author.
+    
+    Parameters
+    ----------
+    guild_id: `int`
+        The ID of the guild.
+    user_id: `int`
+        The ID of the user giving or removing the reaction.
+    author_id: `int`
+        The ID of the user receiving the reaction.
+    event: `ReactionEvent`
+        The event type that triggered the cooldown.'''
+    ensure_cooldown(guild_id, user_id, author_id)
+    if event.is_add:
+        cooldowns[(guild_id, user_id, author_id)].add_cooldown_began = 0
+    else:
+        cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began = 0
+
+def is_cooldown_complete(guild_id: int, user_id: int, author_id: int, event: ReactionEvent) -> bool:
+    '''Check if the event cooldown is complete for a guild-user-author.
+    
+    Parameters
+    ----------
+    guild_id: `int`
+        The ID of the guild.
+    user_id: `int`
+        The ID of the user giving or removing the reaction.
+    author_id: `int`
+        The ID of the user receiving the reaction.
+    event: `ReactionEvent`
+        The event type that triggered the cooldown.'''
+    ensure_cooldown(guild_id, user_id, author_id)
+    # does not need to set it back to 0 because if the user isnt on cooldown anymore it makes no difference when checking: will still be true either way.
+    if event.is_add:
+        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].add_cooldown_began >= ADDING_COOLDOWN
+    else:
+        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began >= REMOVING_COOLDOWN
+
 @client.event
 async def on_ready():
+    '''Event that is called when the bot is ready after logging in or reconnecting.'''
     await tree.sync()
 
     await client.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="for aura changes"))
@@ -216,51 +402,31 @@ async def on_ready():
 
     print(f"Logged in as {client.user}")
 
-cooldowns: dict[tuple[int], UserCooldowns] = defaultdict(dict)
-# this lives in memory as it is not super important to be persistent
-# if the bot restarted we have a bigger problem anyway
-
-def ensure_cooldown(guild_id: int, user_id: int, author_id: int) -> None:
-    '''Ensure a cooldown object exists for a cooldown tuple'''
-    if (guild_id, user_id, author_id) not in cooldowns:
-        cooldowns[(guild_id, user_id, author_id)] = UserCooldowns()
-
-def start_cooldown(guild_id: int, user_id: int, author_id: int, event: ReactionEvent) -> None:
-    '''Start the cooldown for a user'''
-    ensure_cooldown(guild_id, user_id, author_id)
-    if event.is_add:
-        cooldowns[(guild_id, user_id, author_id)].add_cooldown_began = int(time.time())
-    else:
-        cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began = int(time.time())
-
-def end_cooldown(guild_id: int, user_id: int, author_id: int, event: ReactionEvent) -> None:
-    '''End the cooldown early for a user'''
-    ensure_cooldown(guild_id, user_id, author_id)
-    if event.is_add:
-        cooldowns[(guild_id, user_id, author_id)].add_cooldown_began = 0
-    else:
-        cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began = 0
-
-def is_cooldown_complete(guild_id: int, user_id: int, author_id: int, event: ReactionEvent) -> bool:
-    '''Check if the cooldown is complete for a user'''
-    ensure_cooldown(guild_id, user_id, author_id)
-    # does not need to set it back to 0 because if the user isnt on cooldown anymore it makes no difference when checking: will still be true either way.
-    if event.is_add:
-        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].add_cooldown_began >= ADDING_COOLDOWN
-    else:
-        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began >= REMOVING_COOLDOWN
-
 @client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
+    '''Event that is called when a reaction is added to a message.'''
     await parse_payload(payload, ReactionEvent.ADD)
 
 @client.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
+    '''Event that is called when a reaction is removed from a message.'''
     payload.message_author_id = (await client.get_channel(payload.channel_id).fetch_message(payload.message_id)).author.id
     # message_author_id is not in the payload on removal, so we need to fetch the message to get it
     await parse_payload(payload, ReactionEvent.REMOVE)
 
 async def parse_payload(payload: discord.RawReactionActionEvent, event: ReactionEvent) -> None:
+    '''Parse the payload and update the user's aura based on the reaction.
+    
+    Completes a number of validation checks and updates cooldowns.
+    
+    Queues the event to be logged if the log channel is set.
+    
+    Parameters
+    ----------
+    payload: `discord.RawReactionActionEvent`
+        The payload of the reaction event. Provided through the `on_raw_reaction_add` or `on_raw_reaction_remove` event.
+    event: `ReactionEvent`
+        The event type that triggered the reaction.'''
     if payload.guild_id in guilds and payload.user_id != payload.message_author_id and not client.get_user(payload.message_author_id).bot:
         emoji = str(payload.emoji)
         guild_id = payload.guild_id
@@ -287,6 +453,7 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
             if not guilds[guild_id].users[user_id].opted_in or not guilds[guild_id].users[author_id].opted_in:
                 return
 
+            # add the event to the rolling timeline for ratelimiting
             await update_rolling_timelines(guild_id, user_id, event)
 
             # check if the user is on cooldown
@@ -324,6 +491,20 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
             update_time_and_save(guild_id, guilds)
 
 async def update_rolling_timelines(guild_id: int, user_id: int, event: ReactionEvent) -> None:
+    '''Update the rolling timelines for a guild-user pair based on the reaction event.
+    
+    Used to check for spamming reactions and apply temporary bans.
+
+    Checks both a short and long interval.
+    
+    Parameters
+    ----------
+    guild_id: `int`
+        The ID of the guild.
+    user_id: `int`
+        The ID of the user giving or removing the reaction.
+    event: `ReactionEvent`
+        The event type that triggered the reaction.'''
     current_time = time.time()
 
     if event.is_add:
@@ -349,7 +530,14 @@ async def update_rolling_timelines(guild_id: int, user_id: int, event: ReactionE
         return
 
 async def handle_spam(guild_id: int, user_id: int) -> None:
-    # deny the user from giving aura for LIMIT_PENALTY seconds
+    '''Handle spamming reactions by temporarily banning a user from giving aura.
+    
+    Parameters
+    ----------
+    guild_id: `int`
+        The ID of the guild.
+    user_id: `int`
+        The ID of the user to tempban.'''
     temp_banned_users[guild_id].append(user_id)
     await client.get_user(user_id).send(f"You have been temporarily banned for {LIMIT_PENALTY} seconds from giving aura in {client.get_guild(guild_id).name} due to spamming reactions.")
     if guilds[guild_id].log_channel_id is not None:
@@ -360,6 +548,24 @@ async def handle_spam(guild_id: int, user_id: int) -> None:
     temp_banned_users[guild_id].remove(user_id)
 
 def log_aura_change(guild_id: int, recipient_id: int, user_id: int, event: ReactionEvent, emoji: str, points: int, url: str) -> None:
+    '''Log the aura change event to the guild's log channel.
+    
+    Parameters
+    ----------
+    guild_id: `int`
+        The ID of the guild.
+    recipient_id: `int`
+        The ID of the user receiving the aura change.
+    user_id: `int`
+        The ID of the user giving the aura change.
+    event: `ReactionEvent`
+        The event type that triggered the aura change.
+    emoji: `str`
+        The emoji used for the reaction.
+    points: `int`
+        The number of aura points given or taken away.
+    url: `str`
+        The URL of the message where the reaction was added or removed.'''
     sign = ""
     if event.is_add:
         if points > 0:
@@ -378,6 +584,20 @@ def log_aura_change(guild_id: int, recipient_id: int, user_id: int, event: React
     log_cache[guild_id].append(log_message)
 
 def log_event(guild_id: int, recipient_id: int, user_id: int, event: LogEvent, points: int=None) -> None:
+    '''Log the event to the guild's log channel.
+
+    Parameters
+    ----------
+    guild_id: `int`
+        The ID of the guild.
+    recipient_id: `int`
+        The ID of the user receiving the event.
+    user_id: `int`
+        The ID of the user completing the event.
+    event: `LogEvent`
+        The event type that triggered the log.
+    points: `int`, optional
+        The number of aura points given or taken away. Required for manual changes.'''
     match event:
         case LogEvent.MANUAL:
             if points is None:
@@ -396,6 +616,7 @@ def log_event(guild_id: int, recipient_id: int, user_id: int, event: LogEvent, p
 
 @tasks.loop(seconds=LOGGING_INTERVAL)
 async def send_batched_logs():
+    '''Send all batched logs to the respective guild's log channel.'''
     for guild_id, logs in list(log_cache.items()):
         if logs:
             channel_id = guilds[guild_id].log_channel_id
@@ -416,6 +637,21 @@ async def send_batched_logs():
 
 # need to add pagination/multiple embeds
 def get_leaderboard(guild_id: int, persistent=False) -> discord.Embed:
+    '''Get the leaderboard for a guild.
+    
+    Returns an embed with the leaderboard information.
+
+    Parameters
+    ----------
+    guild_id: `int`
+        The ID of the guild.
+    persistent: `bool`, optional
+        Whether the leaderboard is persistent and should be edited in the future or not. Defaults to `False`.
+        
+    Returns
+    -------
+    `discord.Embed`
+        The embed containing the leaderboard information.'''
     embed = discord.Embed(color=0x74327a)
     if persistent:
         mins = UPDATE_INTERVAL // 60
@@ -440,6 +676,20 @@ def get_leaderboard(guild_id: int, persistent=False) -> discord.Embed:
 
 # need to add pagination/multiple embeds
 def get_emoji_list(guild_id: int, persistent=False) -> discord.Embed:
+    '''Get the emoji list for a guild.
+    
+    Parameters
+    ----------
+    guild_id: `int`
+        The ID of the guild.
+    persistent: `bool`, optional
+        Whether the emoji list is persistent and should be edited in the future or not. Defaults to `False`.
+        
+    Returns
+    -------
+    `discord.Embed`
+        The embed containing the emoji list information.'''
+
     embed = discord.Embed(color=0x74327a)
     if persistent:
         embed.set_footer(text=f"Updates immediately.")
@@ -466,7 +716,18 @@ def get_emoji_list(guild_id: int, persistent=False) -> discord.Embed:
 
     return embed
 
-def get_aura_tagline(aura: int):    
+def get_aura_tagline(aura: int):
+    '''Get the aura tagline for a given aura value.
+    
+    Parameters
+    ----------
+    aura: `int`
+        The aura value to get the tagline for.
+        
+    Returns
+    -------
+    `str`
+        The tagline for the given aura value.'''
     aura_ranges = [
         (-float('inf'), -30, "Actually cooked."),
         (-30, -20, "Forgot to mute their mic."),
@@ -491,6 +752,19 @@ def get_aura_tagline(aura: int):
             return tag
 
 def get_user_aura(guild_id: int, user_id: int) -> discord.Embed:
+    '''Get the aura breakdown for a user.
+    
+    Parameters
+    ----------
+    guild_id: `int`
+        The ID of the guild.
+    user_id: `int`
+        The ID of the user.
+        
+    Returns
+    -------
+    `discord.Embed`
+        The embed containing the user's aura breakdown information.'''
     embed = discord.Embed(color=0xb57f94)
     if guild_id not in guilds:
         return embed
@@ -522,6 +796,12 @@ def get_user_aura(guild_id: int, user_id: int) -> discord.Embed:
 
 @tasks.loop(seconds=UPDATE_INTERVAL)
 async def update_leaderboards(skip=False):
+    '''Update the leaderboard and emoji list for all guilds.
+    
+    Parameters
+    ----------
+    skip: `bool`, optional
+        Whether to ignore the update interval and force an update. Defaults to `False`. Is true when the bot is first started.'''
     for guild_id in guilds:
         guild = guilds[guild_id]
         if skip or int(time.time()) - guild.last_update < UPDATE_INTERVAL + 10: # if the last update was less than LIMIT seconds ago. ie: if there is new data to display
@@ -535,6 +815,12 @@ async def update_leaderboards(skip=False):
                         pass
 
 async def update_info(guild_id: int):
+    '''Update the emoji list for a guild.
+    
+    Parameters
+    ----------
+    guild_id: `int`
+        The ID of the guild.'''
     guild = guilds[guild_id]
     if guild.msgs_channel_id is not None:
         channel = client.get_channel(guild.msgs_channel_id)
@@ -546,6 +832,14 @@ async def update_info(guild_id: int):
                 pass
 
 async def check_user_permissions(interaction: discord.Interaction, required_permission: str):
+    '''Check if the user has the required permissions to run a command.
+    
+    Parameters
+    ----------
+    interaction: `discord.Interaction`
+        The interaction object that began this request.
+    required_permission: `str`
+        The permission to check for. Should be a string of the form "manage_channels", "administrator", etc.'''
     if interaction.guild is None:
         await interaction.response.send_message(
             "This command cannot be used in DMs. Please run it in a server.",
