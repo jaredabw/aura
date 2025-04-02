@@ -5,7 +5,7 @@ __**SETUP:**__
 2. Run </logging:1356254831488139457> to set a channel for aura changes to be logged to. This is highly recommended, in the case of anyone spamming or being unfair. 
 3. Add your emojis with </emoji add:1356180634602700863>, and specify their aura points impact.
 4. Watch the leaderboard in the new channel, or run </leaderboard:1356179831288758387> to see it!
-|
+
 __**AURA COMMANDS:**__  
 __*Moderator Commands*__:  
 - </setup:1356179831288758384> - Setup the bot for your server. Initialises the bot and optionally allows you to specify a channel to display the leaderboard. By default, ⭐ (+1) and 💀 (-1) are added. _Permission:_ `Manage Channels`.  
@@ -18,10 +18,12 @@ __*Moderator Commands*__:
 - </emoji update:1356180634602700863> - Update the points of a tracked emoji. For example, you can change ⭐ from +1 to +2. _Permission:_ `Manage Channels`.  
 - </deny:1356559832605392981> - Deny a user from giving or receiving aura. Restricts a user from giving, receiving, or both. Specify the action as `give`, `receive`, or `both`. _Permission:_ `Manage Channels`.  
 - </allow:1356559832605392982> - Allow a user to give or receive aura. Lifts restrictions on a user, allowing them to give, receive, or both. Specify the action as `give`, `receive`, or `both`. _Permission:_ `Manage Channels`.  
-- </config view> - See the bot's timers, thresholds and cooldowns for this server.
-- </config edit> - Adjust these values for this server. It is highly recommended to leave the values as their defaults, unless you know what you are doing.
-- </config reset> - Set the config values back to default.
-
+- </config view:1357013094781685821> - See the bot's timers, thresholds and cooldowns for this server.
+- </config edit:1357013094781685821> - Adjust these values for this server. It is highly recommended to leave the values as their defaults, unless you know what you are doing.
+- </config reset:1357013094781685821> - Set the config values back to default.
+- </clear emojis:1357026159350780189> - Clear all emojis and their associated aura impacts from this server.
+- </clear users:1357026159350780189> - Clear all user data, such as aura and number of reactions. Wipes the leaderboard.
+|
 __*General Commands*__:  
 - </help:1356273217890816000> - This command. Gives information about the bot.  
 - </leaderboard:1356179831288758387> - Display the current leaderboard. The leaderboard in your specified channel updates automatically, but you can use this command to view it manually.  

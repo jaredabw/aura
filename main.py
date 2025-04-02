@@ -1308,11 +1308,11 @@ async def config_view(interaction: discord.Interaction):
 
     embed = discord.Embed(color=0x453f5e)
     embed.set_author(name="Aura Configuration", icon_url=client.user.avatar.url)
-    embed.description = f"__Long limit:__\nA user can make **{guilds[guild_id].limits.threshold_long}** reactions of each type in **{guilds[guild_id].limits.interval_long}** seconds.\n"
-    embed.description += f"__Short limit:__\nA user can make **{guilds[guild_id].limits.threshold_short}** reactions of each type in **{guilds[guild_id].limits.interval_short}** seconds.\n"
+    embed.description = f"__Long limit:__\nA user can add/remove **{guilds[guild_id].limits.threshold_long}** reactions per **{guilds[guild_id].limits.interval_long}** seconds.\n"
+    embed.description += f"__Short limit:__\nA user can add/remove **{guilds[guild_id].limits.threshold_short}** reactions per **{guilds[guild_id].limits.interval_short}** seconds.\n"
     embed.description += f"If a user breaches the above limits, they are prevented from contributing aura for **{guilds[guild_id].limits.penalty}** seconds.\n\n"
-    embed.description += f"__Cooldowns:__\nA user can add an aura-contributing reaction every **{guilds[guild_id].limits.adding_cooldown}** seconds and remove an aura-contributing reaction every **{guilds[guild_id].limits.removing_cooldown}**.\n\n"
-    embed.description += f"Adjust these values using </config edit:>. Make sure you know what you're doing."
+    embed.description += f"__Cooldowns:__\nA user can add an aura-contributing reaction every **{guilds[guild_id].limits.adding_cooldown}** seconds and remove an aura-contributing reaction every **{guilds[guild_id].limits.removing_cooldown}** seconds.\n\n"
+    embed.description += f"Adjust these values using </config edit:1357013094781685821>. Make sure you know what you're doing."
 
     await interaction.response.send_message(embed=embed)
 
@@ -1423,6 +1423,7 @@ async def clear_leaderboard(interaction: discord.Interaction):
 
     update_time_and_save(guild_id, guilds)
     await update_info(guild_id)
+    update_leaderboards(True)
 
     os.remove("user_data.json")
 
