@@ -11,11 +11,9 @@ from typing import Dict
 from dotenv import load_dotenv
 from collections import defaultdict, deque
 
-# TODO: increase ADDING_COOLDOWN and REMOVING_COOLDOWN back to 10 and implement for guild-user-recipient rather than just guild-user
 # TODO: fix command permissions 
-# TODO: two sliding windows: 5 per 10 seconds and 15 per 50 seconds
-# TODO: two sliding windows: add and remove
 
+# TODO: change add and remove strings throughout code to be enums
 
 # TODO: penalise and forgive: if penalised, gain half and lose double
 # TODO: implement increasing cooldown if spamming? idk how to do this. probably hard
@@ -38,13 +36,15 @@ UPDATE_INTERVAL = 10 # how often to update the leaderboard
 LOGGING_INTERVAL = 10 # how often to send logs
 
 # make constants below configurable in the future
-# user can send LIMIT_THRESHOLD reaction events (add or remove) in the last LIMIT_INTERVAL seconds before being denied for LIMIT_PENALTY seconds
+# user can send LIMIT_THRESHOLD and LIMIT_THRESHOLD_SHORT reaction events in the last LIMIT_INTERVAL and LIMIT_INTERVAL_SHORT seconds respectively before being tempbanned for LIMIT_PENALTY seconds
 LIMIT_INTERVAL = 60
-LIMIT_THRESHOLD = 15
+LIMIT_THRESHOLD = 20
+LIMIT_INTERVAL_SHORT = 10
+LIMIT_THRESHOLD_SHORT = 10
 LIMIT_PENALTY = 300
 
-ADDING_COOLDOWN = 2 # how long to wait before allowing a user to add a new reaction and give aura
-REMOVING_COOLDOWN = 2 # how long to wait before allowing a user to remove a reaction and restore aura
+ADDING_COOLDOWN = 10 # how long to wait before allowing a user to add a new reaction and give aura
+REMOVING_COOLDOWN = ADDING_COOLDOWN # how long to wait before allowing a user to remove a reaction and restore aura
 
 with open("help.txt", "r", encoding="utf-8") as help_file:
     HELP_TEXT = help_file.read()
@@ -161,7 +161,7 @@ cooldowns: dict[tuple[int], UserCooldowns] = defaultdict(dict)
 # if the bot restarted we have a bigger problem anyway
 
 def ensure_cooldown(guild_id: int, user_id: int, author_id: int) -> None:
-    '''Create a cooldown for a user'''
+    '''Ensure a cooldown object exists for a cooldown tuple'''
     if (guild_id, user_id, author_id) not in cooldowns:
         cooldowns[(guild_id, user_id, author_id)] = UserCooldowns()
 
@@ -207,7 +207,8 @@ tree.add_command(opt_group)
 guilds = load_data()
 # populateCooldowns()
 log_cache = defaultdict(list)
-sliding_window: defaultdict[tuple, deque] = defaultdict(deque)
+rolling_add: defaultdict[tuple, deque] = defaultdict(deque)
+rolling_remove: defaultdict[tuple, deque] = defaultdict(deque)
 temp_banned_users = defaultdict(list) # {guild_id: [user_id]}
 
 @client.event
@@ -263,7 +264,7 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
             if not guilds[guild_id].users[user_id].opted_in or not guilds[guild_id].users[author_id].opted_in:
                 return
 
-            await update_sliding_window(guild_id, user_id)
+            await update_sliding_window(guild_id, user_id, "add" if adding else "remove")
 
             # check if the user is on cooldown
             if adding and not is_cooldown_complete(guild_id, user_id, author_id, "add"):
@@ -300,13 +301,32 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
 
             update_time_and_save(guild_id, guilds)
 
-async def update_sliding_window(guild_id: int, user_id: int) -> None:
+async def update_sliding_window(guild_id: int, user_id: int, event: str) -> None:
     current_time = time.time()
-    sliding_window[(guild_id, user_id)].append(current_time)
-    while sliding_window[(guild_id, user_id)] and sliding_window[(guild_id, user_id)][0] < current_time - LIMIT_INTERVAL:
-        sliding_window[(guild_id, user_id)].popleft()
-    if len(sliding_window[(guild_id, user_id)]) > LIMIT_THRESHOLD:
+
+    if event == "add":
+        rolling = rolling_add # uses mutability of dict. rolling is just a pointer
+    elif event == "remove":
+        rolling = rolling_remove
+    else:
+        raise ValueError("Invalid event. Must be 'add' or 'remove'.")
+
+    rolling[(guild_id, user_id)].append(current_time)
+
+    # remove expired timestamps from the deque
+    while rolling[(guild_id, user_id)] and rolling[(guild_id, user_id)][0] < current_time - LIMIT_INTERVAL:
+        rolling[(guild_id, user_id)].popleft()
+
+    # long interval check
+    if len(rolling[(guild_id, user_id)]) > LIMIT_THRESHOLD:
         await handle_spam(guild_id, user_id)
+        return
+
+    # short interval check
+    short_rolling = [1 for t in rolling[(guild_id, user_id)] if t >= current_time - LIMIT_INTERVAL_SHORT]
+    if sum(short_rolling) > LIMIT_THRESHOLD_SHORT:
+        await handle_spam(guild_id, user_id)
+        return
 
 async def handle_spam(guild_id: int, user_id: int) -> None:
     # deny the user from giving aura for LIMIT_PENALTY seconds
