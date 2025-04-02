@@ -28,20 +28,8 @@ from enum import Enum
 load_dotenv("token.env")
 TOKEN = os.getenv("TOKEN")
 
-# in seconds
 UPDATE_INTERVAL = 10 # how often to update the leaderboard
 LOGGING_INTERVAL = 10 # how often to send logs
-
-# make constants below configurable in the future
-# user can send LIMIT_THRESHOLD and LIMIT_THRESHOLD_SHORT reaction events in the last LIMIT_INTERVAL and LIMIT_INTERVAL_SHORT seconds respectively before being tempbanned for LIMIT_PENALTY seconds
-LIMIT_INTERVAL = 60
-LIMIT_THRESHOLD = 20
-LIMIT_INTERVAL_SHORT = 10
-LIMIT_THRESHOLD_SHORT = 10
-LIMIT_PENALTY = 300
-
-ADDING_COOLDOWN = 10 # how long to wait before allowing a user to add a new reaction and give aura
-REMOVING_COOLDOWN = ADDING_COOLDOWN # how long to wait before allowing a user to remove a reaction and restore aura
 
 with open("help.txt", "r", encoding="utf-8") as help_file:
     HELP_TEXT = help_file.read()
@@ -163,6 +151,45 @@ class EmojiReaction:
     points: int = 0
 
 @dataclass
+class Limits:
+    '''Class that represents the configured limits and cooldowns for a guild.
+
+    All time limits are in seconds.
+
+    Defaults to the following values:  
+    `interval_long` = 60  
+    `threshold_long` = 10  
+    `interval_short` = 15  
+    `threshold_short` = 5  
+    `penalty` = 300  
+    `adding_cooldown` = 10  
+    `removing_cooldown` = 10  
+
+    Attributes
+    ----------
+    interval_long: `int`
+        The long interval for the reaction limit.
+    threshold_long: `int`
+        The threshold for the long interval.
+    interval_short: `int`
+        The short interval for the reaction limit.
+    threshold_short: `int`
+        The threshold for the short interval.
+    penalty: `int`
+        The penalty for exceeding the limits.
+    adding_cooldown: `int`
+        The cooldown for adding reactions.
+    removing_cooldown: `int`
+        The cooldown for removing reactions.'''
+    interval_long: int = 60
+    threshold_long: int = 10
+    interval_short: int = 15
+    threshold_short: int = 5
+    penalty: int = 300
+    adding_cooldown: int = 10
+    removing_cooldown: int = 10
+
+@dataclass
 class Guild:
     '''Class that represents a guild.
     
@@ -189,6 +216,7 @@ class Guild:
     msgs_channel_id: int = None
     log_channel_id: int = None
     last_update: int = None
+    limits: Limits = field(default_factory=Limits)
 
 def load_data(filename="data.json"):
     '''Load the guild data from a JSON file.
@@ -218,9 +246,20 @@ def load_data(filename="data.json"):
                     ) for user_id, data in guild.get("users", {}).items()
                     }
                 reactions = {emoji: EmojiReaction(points=data["points"]) for emoji, data in guild.get("reactions", {}).items()}
+                limits_data: dict = guild.get("limits", {})
+                limits = Limits(
+                    interval_long=limits_data.get("interval_long", 60),
+                    threshold_long=limits_data.get("threshold_long", 10),
+                    interval_short=limits_data.get("interval_short", 15),
+                    threshold_short=limits_data.get("threshold_short", 5),
+                    penalty=limits_data.get("penalty", 300),
+                    adding_cooldown=limits_data.get("adding_cooldown", 10),
+                    removing_cooldown=limits_data.get("removing_cooldown", 10)
+                )
                 guilds[int(guild_id)] = Guild(
                     users=users,
                     reactions=reactions,
+                    limits=limits,
                     info_msg_id=guild.get("info_msg_id", None),
                     board_msg_id=guild.get("board_msg_id", None),
                     msgs_channel_id=guild.get("msgs_channel_id", None),
@@ -251,6 +290,7 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
         guild_data = {
             "users": {},
             "reactions": {},
+            "limits": {},
             "info_msg_id": guild.info_msg_id,
             "board_msg_id": guild.board_msg_id,
             "msgs_channel_id": guild.msgs_channel_id,
@@ -273,6 +313,16 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
         
         for emoji, reaction in guild.reactions.items():
             guild_data["reactions"][emoji] = {"points": reaction.points}
+
+        guild_data["limits"] = {
+            "interval_long": guild.limits.interval_long,
+            "threshold_long": guild.limits.threshold_long,
+            "interval_short": guild.limits.interval_short,
+            "threshold_short": guild.limits.threshold_short,
+            "penalty": guild.limits.penalty,
+            "adding_cooldown": guild.limits.adding_cooldown,
+            "removing_cooldown": guild.limits.removing_cooldown
+        }
 
         save_data["guilds"][guild_id] = guild_data
     #
@@ -300,8 +350,10 @@ client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 emoji_group = app_commands.Group(name="emoji", description="Commands for managing emojis.", guild_only=True)
 opt_group = app_commands.Group(name="opt", description="Commands for managing aura participation.", guild_only=True)
+config_group = app_commands.Group(name="config", description="Commands for managing guild configuration.", guild_only=True)
 tree.add_command(emoji_group)
 tree.add_command(opt_group)
+tree.add_command(config_group)
 
 guilds = load_data()
 log_cache = defaultdict(list)
@@ -381,9 +433,9 @@ def is_cooldown_complete(guild_id: int, user_id: int, author_id: int, event: Rea
     ensure_cooldown(guild_id, user_id, author_id)
     # does not need to set it back to 0 because if the user isnt on cooldown anymore it makes no difference when checking: will still be true either way.
     if event.is_add:
-        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].add_cooldown_began >= ADDING_COOLDOWN
+        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].add_cooldown_began >= guilds[guild_id].limits.adding_cooldown
     else:
-        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began >= REMOVING_COOLDOWN
+        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began >= guilds[guild_id].limits.removing_cooldown
 
 @client.event
 async def on_ready():
@@ -515,17 +567,17 @@ async def update_rolling_timelines(guild_id: int, user_id: int, event: ReactionE
     rolling[(guild_id, user_id)].append(current_time)
 
     # remove expired timestamps from the deque
-    while rolling[(guild_id, user_id)] and rolling[(guild_id, user_id)][0] < current_time - LIMIT_INTERVAL:
+    while rolling[(guild_id, user_id)] and rolling[(guild_id, user_id)][0] < current_time - guilds[guild_id].limits.interval_long:
         rolling[(guild_id, user_id)].popleft()
 
     # long interval check
-    if len(rolling[(guild_id, user_id)]) > LIMIT_THRESHOLD:
+    if len(rolling[(guild_id, user_id)]) > guilds[guild_id].limits.threshold_long:
         await handle_spam(guild_id, user_id)
         return
 
     # short interval check
-    short_rolling = [1 for t in rolling[(guild_id, user_id)] if t >= current_time - LIMIT_INTERVAL_SHORT]
-    if sum(short_rolling) > LIMIT_THRESHOLD_SHORT:
+    short_rolling = [1 for t in rolling[(guild_id, user_id)] if t >= current_time - guilds[guild_id].limits.interval_short]
+    if sum(short_rolling) > guilds[guild_id].limits.threshold_short:
         await handle_spam(guild_id, user_id)
         return
 
@@ -539,12 +591,12 @@ async def handle_spam(guild_id: int, user_id: int) -> None:
     user_id: `int`
         The ID of the user to tempban.'''
     temp_banned_users[guild_id].append(user_id)
-    await client.get_user(user_id).send(f"<@{user_id}\nYou have been temporarily banned for {LIMIT_PENALTY} seconds from giving aura in {client.get_guild(guild_id).name} due to spamming reactions.")
+    await client.get_user(user_id).send(f"<@{user_id}\nYou have been temporarily banned for {guilds[guild_id].limits.penalty} seconds from giving aura in {client.get_guild(guild_id).name} due to spamming reactions.")
     if guilds[guild_id].log_channel_id is not None:
         log_event(guild_id, user_id, user_id, LogEvent.SPAMMING)
 
     # start a timer to allow the user to give aura again after LIMIT_PENALTY seconds
-    await asyncio.sleep(LIMIT_PENALTY)
+    await asyncio.sleep(guilds[guild_id].limits.penalty)
     temp_banned_users[guild_id].remove(user_id)
 
 def log_aura_change(guild_id: int, recipient_id: int, user_id: int, event: ReactionEvent, emoji: str, points: int, url: str) -> None:
@@ -604,7 +656,7 @@ def log_event(guild_id: int, recipient_id: int, user_id: int, event: LogEvent, p
                 raise ValueError("Points must be provided for manual changes.")
             log_message = f"<@{user_id}> manually changed aura of <@{recipient_id}> ({'+' if points > 0 else ''}{points} points)"
         case LogEvent.SPAMMING:
-            log_message = f"<@{user_id}> was temporarily banned for {LIMIT_PENALTY} seconds from giving aura due to spamming reactions."
+            log_message = f"<@{user_id}> was temporarily banned for {guilds[guild_id].limits.penalty} seconds from giving aura due to spamming reactions."
         case LogEvent.DENY_GIVING | LogEvent.DENY_RECEIVING | LogEvent.DENY_BOTH:
             log_message = f"<@{user_id}> denied <@{recipient_id}> from {str(event)} aura."
         case LogEvent.ALLOW_GIVING | LogEvent.ALLOW_RECEIVING | LogEvent.ALLOW_BOTH:
@@ -1229,5 +1281,89 @@ async def list_emoji(interaction: discord.Interaction):
         return
     
     await interaction.response.send_message(embed=get_emoji_list(guild_id))
+
+@config_group.command(name="view", description="View the bot's configuration.")
+@app_commands.guild_only()
+async def config_view(interaction: discord.Interaction):
+    if not await check_user_permissions(interaction, "manage_channels"): return
+    guild_id = interaction.guild.id
+
+    if guild_id not in guilds:
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
+        return
+
+    embed = discord.Embed(color=0x453f5e)
+    embed.set_author(name="Aura Configuration", icon_url=client.user.avatar.url)
+    embed.description = f"__Long limit:__\nA user can make **{guilds[guild_id].limits.threshold_long}** reactions of each type in **{guilds[guild_id].limits.interval_long}** seconds.\n"
+    embed.description += f"__Short limit:__\nA user can make **{guilds[guild_id].limits.threshold_short}** reactions of each type in **{guilds[guild_id].limits.interval_short}** seconds.\n"
+    embed.description += f"If a user breaches the above limits, they are prevented from contributing aura for **{guilds[guild_id].limits.penalty}** seconds.\n\n"
+    embed.description += f"__Cooldowns:__\nA user can add an aura-contributing reaction every **{guilds[guild_id].limits.adding_cooldown}** seconds and remove an aura-contributing reaction every **{guilds[guild_id].limits.removing_cooldown}**.\n\n"
+    embed.description += f"Adjust these values using </config edit:>. Make sure you know what you're doing."
+
+    await interaction.response.send_message(embed=embed)
+
+@config_group.command(name="edit", description="Edit the bot's configuration.")
+@app_commands.guild_only()
+@app_commands.describe(key="The configuration value to edit.", value="The new value for the configuration key.")
+async def config_edit(interaction: discord.Interaction, key: Literal["Long interval", "Long threshold", "Short interval", "Short threshold", "Tempban length", "Adding cooldown", "Removing cooldown"], value: int):
+    if not await check_user_permissions(interaction, "manage_channels"): return
+    guild_id = interaction.guild.id
+
+    if guild_id not in guilds:
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
+        return
+
+    value = int(value)
+
+    if value < 0:
+        await interaction.response.send_message("Value must be positive.")
+        return
+    
+    if key == "Long interval" and value < guilds[guild_id].limits.interval_short:
+        await interaction.response.send_message("Long interval must be greater than short interval.")
+        return
+    elif key == "Long threshold" and value < guilds[guild_id].limits.threshold_short:
+        await interaction.response.send_message("Long threshold must be greater than short threshold.")
+        return
+    elif key == "Short interval" and value > guilds[guild_id].limits.interval_long:
+        await interaction.response.send_message("Short interval must be less than long interval.")
+    elif key == "Short threshold" and value > guilds[guild_id].limits.threshold_long:
+        await interaction.response.send_message("Short threshold must be less than long threshold.")
+
+    match key:
+        case "Long interval":
+            guilds[guild_id].limits.interval_long = value
+        case "Long threshold":
+            guilds[guild_id].limits.threshold_long = value
+        case "Short interval":
+            guilds[guild_id].limits.interval_short = value
+        case "Short threshold":
+            guilds[guild_id].limits.threshold_short = value
+        case "Tempban length":
+            guilds[guild_id].limits.penalty = value
+        case "Adding cooldown":
+            guilds[guild_id].limits.adding_cooldown = value
+        case "Removing cooldown":
+            guilds[guild_id].limits.removing_cooldown = value
+        case _:
+            await interaction.response.send_message("Invalid key.")
+            return
+    update_time_and_save(guild_id, guilds)
+    await interaction.response.send_message(f"Updated {key} to {value}.")
+
+@config_group.command(name="reset", description="Reset the bot's configuration to default.")
+@app_commands.guild_only()
+async def config_reset(interaction: discord.Interaction):
+    if not await check_user_permissions(interaction, "manage_channels"): return
+
+    guild_id = interaction.guild.id
+
+    if guild_id not in guilds:
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
+        return
+
+    guilds[guild_id].limits = Limits()
+    update_time_and_save(guild_id, guilds)
+    await interaction.response.send_message("Configuration reset to default.")
 
 client.run(TOKEN)

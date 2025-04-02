@@ -18,6 +18,9 @@ __*Moderator Commands*__:
 - </emoji update:1356180634602700863> - Update the points of a tracked emoji. For example, you can change ⭐ from +1 to +2. _Permission:_ `Manage Channels`.  
 - </deny:1356559832605392981> - Deny a user from giving or receiving aura. Restricts a user from giving, receiving, or both. Specify the action as `give`, `receive`, or `both`. _Permission:_ `Manage Channels`.  
 - </allow:1356559832605392982> - Allow a user to give or receive aura. Lifts restrictions on a user, allowing them to give, receive, or both. Specify the action as `give`, `receive`, or `both`. _Permission:_ `Manage Channels`.  
+- </config view> - See the bot's timers, thresholds and cooldowns for this server.
+- </config edit> - Adjust these values for this server. It is highly recommended to leave the values as their defaults, unless you know what you are doing.
+- </config reset> - Set the config values back to default.
 
 __*General Commands*__:  
 - </help:1356273217890816000> - This command. Gives information about the bot.  
