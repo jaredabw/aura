@@ -355,9 +355,11 @@ tree = app_commands.CommandTree(client)
 emoji_group = app_commands.Group(name="emoji", description="Commands for managing emojis.", guild_only=True)
 opt_group = app_commands.Group(name="opt", description="Commands for managing aura participation.", guild_only=True)
 config_group = app_commands.Group(name="config", description="Commands for managing guild configuration.", guild_only=True)
+clear_group = app_commands.Group(name="clear", description="Commands for clearing data.", guild_only=True)
 tree.add_command(emoji_group)
 tree.add_command(opt_group)
 tree.add_command(config_group)
+tree.add_command(clear_group)
 
 guilds = load_data()
 log_cache = defaultdict(list)
@@ -987,11 +989,19 @@ async def delete(interaction: discord.Interaction):
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
 
-    await (client.get_user(355938178265251842)).send(f"Guild {guild_id} data was deleted. Data as follows:\n\n```{json.dumps({str(guild_id): guilds[guild_id]}, default=lambda o: o.__dict__, indent=4)}```")
-    del guilds[guild_id]
+    data = json.dumps({str(guild_id): guilds[guild_id]}, default=lambda o: o.__dict__, indent=4)
 
+    with open("deleted_data.json", "a") as f:
+        f.write(data)
+
+    await (client.get_user(355938178265251842)).send(f"Guild {guild_id} data was deleted. Data was as follows", file=discord.File("deleted_data.json"))
+    await interaction.response.send_message("Data deleted. If this was a mistake, contact `@engiw` to restore data. Final data is attached.", file=discord.File("deleted_data.json"))
+
+    del guilds[guild_id]
     save_data(guilds)
-    await interaction.response.send_message("Data deleted. If this was a mistake, contact `@engiw` to restore data.")
+    await update_info(guild_id)
+
+    os.remove("deleted_data.json")
 
 @tree.command(name="leaderboard", description="Show the current leaderboard.")
 @app_commands.guild_only()
@@ -1369,5 +1379,51 @@ async def config_reset(interaction: discord.Interaction):
     guilds[guild_id].limits = Limits()
     update_time_and_save(guild_id, guilds)
     await interaction.response.send_message("Configuration reset to default.")
+
+@clear_group.command(name="emojis", description="Clear all emojis.")
+@app_commands.guild_only()
+async def clear_emojis(interaction: discord.Interaction):
+    if not await check_user_permissions(interaction, "administrator"): return
+
+    guild_id = interaction.guild.id
+
+    if guild_id not in guilds:
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
+        return
+
+    data = json.dumps({"reactions": guilds[guild_id].reactions}, default=lambda o: o.__dict__, indent=4)
+    with open("emojis_data.json", "w") as f:
+        f.write(data)
+
+    await interaction.response.send_message(f"Clearing all emojis. Final data is attached.", file=discord.File("emojis_data.json"))
+    guilds[guild_id].reactions = {}
+
+    update_time_and_save(guild_id, guilds)
+    await update_info(guild_id)
+
+    os.remove("emojis_data.json")
+
+@clear_group.command(name="users", description="Clear all user and aura data.")
+@app_commands.guild_only()
+async def clear_leaderboard(interaction: discord.Interaction):
+    if not await check_user_permissions(interaction, "administrator"): return
+
+    guild_id = interaction.guild.id
+
+    if guild_id not in guilds:
+        await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
+        return
+
+    data = json.dumps({"users": guilds[guild_id].users}, default=lambda o: o.__dict__, indent=4)
+    with open("user_data.json", "w") as f:
+        f.write(data)
+
+    await interaction.response.send_message(f"Clearing all user and aura data. Final data is attached.", file=discord.File("user_data.json"))
+    guilds[guild_id].users = {}
+
+    update_time_and_save(guild_id, guilds)
+    await update_info(guild_id)
+
+    os.remove("user_data.json")
 
 client.run(TOKEN)
