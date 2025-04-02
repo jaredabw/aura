@@ -1395,7 +1395,7 @@ async def clear_emojis(interaction: discord.Interaction):
     with open("emojis_data.json", "w") as f:
         f.write(data)
 
-    await interaction.response.send_message(f"Clearing all emojis. Final data is attached.", file=discord.File("emojis_data.json"))
+    await interaction.response.send_message(f"Cleared all emojis. If this was a mistake, contact `@engiw` to restore data. Final data is attached.", file=discord.File("emojis_data.json"))
     guilds[guild_id].reactions = {}
 
     update_time_and_save(guild_id, guilds)
@@ -1418,7 +1418,7 @@ async def clear_leaderboard(interaction: discord.Interaction):
     with open("user_data.json", "w") as f:
         f.write(data)
 
-    await interaction.response.send_message(f"Clearing all user and aura data. Final data is attached.", file=discord.File("user_data.json"))
+    await interaction.response.send_message(f"Cleared all user and aura data. If this was a mistake, contact `@engiw` to restore data. Final data is attached.", file=discord.File("user_data.json"))
     guilds[guild_id].users = {}
 
     update_time_and_save(guild_id, guilds)
