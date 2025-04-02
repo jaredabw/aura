@@ -997,9 +997,9 @@ async def delete(interaction: discord.Interaction):
     await (client.get_user(355938178265251842)).send(f"Guild {guild_id} data was deleted. Data was as follows", file=discord.File("deleted_data.json"))
     await interaction.response.send_message("Data deleted. If this was a mistake, contact `@engiw` to restore data. Final data is attached.", file=discord.File("deleted_data.json"))
 
+    await update_info(guild_id)
     del guilds[guild_id]
     save_data(guilds)
-    await update_info(guild_id)
 
     os.remove("deleted_data.json")
 

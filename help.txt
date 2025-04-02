@@ -6,8 +6,7 @@ __**SETUP:**__
 3. Add your emojis with </emoji add:1356180634602700863>, and specify their aura points impact.
 4. Watch the leaderboard in the new channel, or run </leaderboard:1356179831288758387> to see it!
 
-__**AURA COMMANDS:**__  
-__*Moderator Commands*__:  
+__**MOD COMMANDS**__:
 - </setup:1356179831288758384> - Setup the bot for your server. Initialises the bot and optionally allows you to specify a channel to display the leaderboard. By default, ⭐ (+1) and 💀 (-1) are added. _Permission:_ `Manage Channels`.  
 - </delete:1356179831288758386> - Delete all bot data for this server. Removes all tracked data, including emojis, leaderboards, and logs. _Permission:_ `Administrator`.  
 - </changeaura:1356559832605392980> - Change a user's aura by a specified amount. Allows administrators to manually adjust a user's aura score by adding or subtracting points. Used for correcting errors or rewarding users. _Permission:_ `Administrator`.  
@@ -16,15 +15,15 @@ __*Moderator Commands*__:
 - </emoji add:1356180634602700863> - Add an emoji to tracking. Specify an emoji and its aura points impact (positive or negative). _Permission:_ `Manage Channels`.  
 - </emoji remove:1356180634602700863> - Remove an emoji from tracking. Stops tracking the specified emoji and removes its aura impact. _Permission:_ `Manage Channels`.  
 - </emoji update:1356180634602700863> - Update the points of a tracked emoji. For example, you can change ⭐ from +1 to +2. _Permission:_ `Manage Channels`.  
-- </deny:1356559832605392981> - Deny a user from giving or receiving aura. Restricts a user from giving, receiving, or both. Specify the action as `give`, `receive`, or `both`. _Permission:_ `Manage Channels`.  
-- </allow:1356559832605392982> - Allow a user to give or receive aura. Lifts restrictions on a user, allowing them to give, receive, or both. Specify the action as `give`, `receive`, or `both`. _Permission:_ `Manage Channels`.  
-- </config view:1357013094781685821> - See the bot's timers, thresholds and cooldowns for this server.
-- </config edit:1357013094781685821> - Adjust these values for this server. It is highly recommended to leave the values as their defaults, unless you know what you are doing.
-- </config reset:1357013094781685821> - Set the config values back to default.
-- </clear emojis:1357026159350780189> - Clear all emojis and their associated aura impacts from this server.
-- </clear users:1357026159350780189> - Clear all user data, such as aura and number of reactions. Wipes the leaderboard.
+- </deny:1356559832605392981> - Deny a user from giving or receiving aura. Restricts a user from giving, receiving, or both. _Permission:_ `Manage Channels`.  
+- </allow:1356559832605392982> - Allow a user to give or receive aura. Lifts restrictions on a user, allowing them to give, receive, or both. _Permission:_ `Manage Channels`.  
+- </config view:1357013094781685821> - See the bot's timers, thresholds and cooldowns for this server. _Permission:_ `Manage Channels`. 
+- </config edit:1357013094781685821> - Adjust these values for this server. It is highly recommended to leave the values as their defaults, unless you know what you are doing. _Permission:_ `Manage Channels`. 
+- </config reset:1357013094781685821> - Set the config values back to default. _Permission:_ `Manage Channels`. 
+- </clear emojis:1357026159350780189> - Clear all emojis and their associated aura impacts from this server. _Permission:_ `Administrator`. 
+- </clear users:1357026159350780189> - Clear all user data, such as aura and number of reactions. Wipes the leaderboard. _Permission:_ `Administrator`. 
 |
-__*General Commands*__:  
+__**GENERAL COMMANDS**__:
 - </help:1356273217890816000> - This command. Gives information about the bot.  
 - </leaderboard:1356179831288758387> - Display the current leaderboard. The leaderboard in your specified channel updates automatically, but you can use this command to view it manually.  
 - </aura:1356559832605392979> - Check your or another user's aura and other info. If no user is specified, it displays your own info.  
@@ -39,5 +38,5 @@ __**INFO:**__
 - Implements two spam filters: 
   - 10 second cooldown on giving aura (per server user recipient combination); ignored if a user removed their reaction, i.e. put the wrong reaction, removed it, and added the correct reaction.  
   - Temporary bans from giving aura for excessive reaction additions and/or removals in a short period of time.
-- Unfortunately it is very difficult to determine when a user is legitimate or spamming, so mods must manually punish with /deny too.
+  - These values are configurable at your discretion.
 - If you are getting the error "A specified channel ID is invalid" when trying to use /setup or /updatechannel, try running the command on PC.
