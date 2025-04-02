@@ -12,9 +12,13 @@ from dotenv import load_dotenv
 from collections import defaultdict, deque
 
 # TODO: increase ADDING_COOLDOWN and REMOVING_COOLDOWN back to 10 and implement for guild-user-recipient rather than just guild-user
-# TODO: or implement increasing cooldown if spamming? idk how to do this. probably hard
+# TODO: fix command permissions 
+# TODO: two sliding windows: 5 per 10 seconds and 15 per 50 seconds
+# TODO: two sliding windows: add and remove
+
 
 # TODO: penalise and forgive: if penalised, gain half and lose double
+# TODO: implement increasing cooldown if spamming? idk how to do this. probably hard
 
 # TODO: emoji usage stats
 
@@ -149,44 +153,44 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
 
 def update_time_and_save(guild_id, guilds: Dict[int, Guild]):
     guilds[guild_id].last_update = int(time.time())
-    populateCooldowns()
+    # populateCooldowns()
     save_data(guilds)
 
-cooldowns: defaultdict[int, dict[int, UserCooldowns]] = defaultdict(dict)
-# {guild_id: {user_id: UserCooldowns}}
+cooldowns: dict[tuple[int], UserCooldowns] = defaultdict(dict)
 # this lives in memory as it is not super important to be persistent
 # if the bot restarted we have a bigger problem anyway
 
-def populateCooldowns():
-    '''Populdate the cooldowns dict with all users'''
-    for guild_id in guilds:
-        for user_id in guilds[guild_id].users:
-            if user_id not in cooldowns[guild_id]:
-                cooldowns[guild_id][user_id] = UserCooldowns()
+def ensure_cooldown(guild_id: int, user_id: int, author_id: int) -> None:
+    '''Create a cooldown for a user'''
+    if (guild_id, user_id, author_id) not in cooldowns:
+        cooldowns[(guild_id, user_id, author_id)] = UserCooldowns()
 
-def startCooldown(guild_id: int, user_id: int, action: str) -> None:
+def start_cooldown(guild_id: int, user_id: int, author_id: int, action: str) -> None:
     '''Start the cooldown for a user'''
+    ensure_cooldown(guild_id, user_id, author_id)
     if action == "add":
-        cooldowns[guild_id][user_id].add_cooldown_began = int(time.time())
+        cooldowns[(guild_id, user_id, author_id)].add_cooldown_began = int(time.time())
     elif action == "remove":
-        cooldowns[guild_id][user_id].remove_cooldown_began = int(time.time())
+        cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began = int(time.time())
     else: raise ValueError("Invalid action. Must be 'add' or 'remove'.")
 
-def endCooldown(guild_id: int, user_id: int, action: str) -> None:
+def end_cooldown(guild_id: int, user_id: int, author_id: int, action: str) -> None:
     '''End the cooldown early for a user'''
+    ensure_cooldown(guild_id, user_id, author_id)
     if action == "add":
-        cooldowns[guild_id][user_id].add_cooldown_began = 0
+        cooldowns[(guild_id, user_id, author_id)].add_cooldown_began = 0
     elif action == "remove":
-        cooldowns[guild_id][user_id].remove_cooldown_began = 0
+        cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began = 0
     else: raise ValueError("Invalid action. Must be 'add' or 'remove'.")
 
-def isCooldownComplete(guild_id: int, user_id: int, action: str) -> bool:
+def is_cooldown_complete(guild_id: int, user_id: int, author_id: int, action: str) -> bool:
     '''Check if the cooldown is complete for a user'''
+    ensure_cooldown(guild_id, user_id, author_id)
     # does not need to set it back to 0 because if the user isnt on cooldown anymore it makes no difference when checking: will still be true either way.
     if action == "add":
-        return int(time.time()) - cooldowns[guild_id][user_id].add_cooldown_began >= ADDING_COOLDOWN
+        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].add_cooldown_began >= ADDING_COOLDOWN
     elif action == "remove":
-        return int(time.time()) - cooldowns[guild_id][user_id].remove_cooldown_began >= REMOVING_COOLDOWN
+        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began >= REMOVING_COOLDOWN
     else: raise ValueError("Invalid action. Must be 'add' or 'remove'.")
 
 intents = discord.Intents.default()
@@ -201,7 +205,7 @@ tree.add_command(emoji_group)
 tree.add_command(opt_group)
 
 guilds = load_data()
-populateCooldowns()
+# populateCooldowns()
 log_cache = defaultdict(list)
 sliding_window: defaultdict[tuple, deque] = defaultdict(deque)
 temp_banned_users = defaultdict(list) # {guild_id: [user_id]}
@@ -262,18 +266,18 @@ async def parse_payload(payload: discord.RawReactionActionEvent, adding: bool) -
             await update_sliding_window(guild_id, user_id)
 
             # check if the user is on cooldown
-            if adding and not isCooldownComplete(guild_id, user_id, "add"):
+            if adding and not is_cooldown_complete(guild_id, user_id, author_id, "add"):
                 return
-            elif not adding and not isCooldownComplete(guild_id, author_id, "remove"):
+            elif not adding and not is_cooldown_complete(guild_id, user_id, author_id, "remove"):
                 return
             
             # reset cooldowns
             if adding:
-                startCooldown(guild_id, user_id, "add")
-                endCooldown(guild_id, user_id, "remove")
+                start_cooldown(guild_id, user_id, author_id, "add")
+                end_cooldown(guild_id, user_id, author_id, "remove")
             elif not adding:
-                startCooldown(guild_id, author_id, "remove")
-                endCooldown(guild_id, author_id, "add")
+                start_cooldown(guild_id, user_id, author_id, "remove")
+                end_cooldown(guild_id, user_id, author_id, "add")
 
             if adding:
                 points = guilds[guild_id].reactions[emoji].points
