@@ -6,7 +6,7 @@ import os
 from discord import app_commands
 from discord.ext import tasks
 from dataclasses import dataclass, field
-from typing import Dict
+from typing import Dict, Literal, Callable, Any
 from dotenv import load_dotenv
 from emoji import is_emoji
 from collections import defaultdict, deque
@@ -189,8 +189,8 @@ intents.members = True # required for client.get_user() and client.fetch_message
 client = discord.Client(intents=intents)
 
 tree = app_commands.CommandTree(client)
-emoji_group = app_commands.Group(name="emoji", description="Commands for managing emojis.")
-opt_group = app_commands.Group(name="opt", description="Commands for managing aura participation.")
+emoji_group = app_commands.Group(name="emoji", description="Commands for managing emojis.", guild_only=True)
+opt_group = app_commands.Group(name="opt", description="Commands for managing aura participation.", guild_only=True)
 tree.add_command(emoji_group)
 tree.add_command(opt_group)
 
@@ -545,6 +545,24 @@ async def update_info(guild_id: int):
             except Exception:
                 pass
 
+async def check_user_permissions(interaction: discord.Interaction, required_permission: str):
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "This command cannot be used in DMs. Please run it in a server.",
+            ephemeral=True
+        )
+        return False
+
+    user_permissions = interaction.channel.permissions_for(interaction.user)
+    if not getattr(user_permissions, required_permission, False):
+        await interaction.response.send_message(
+            f"You are missing {' '.join(word.capitalize() for word in required_permission.split('_'))} permissions to run this command.", 
+            ephemeral=True
+        )
+        return False
+
+    return True
+
 @tree.command(name="help", description="Display the help text.")
 async def help_command(interaction: discord.Interaction):
     embed = discord.Embed(color=0x74327a)
@@ -558,9 +576,11 @@ async def help_command(interaction: discord.Interaction):
     await interaction.followup.send(embed=embed2, ephemeral=True)
 
 @tree.command(name="setup", description="Setup the bot. (Optional) Displays the leaderboard in the given channel.")
-@app_commands.checks.has_permissions(manage_channels=True)
+@app_commands.guild_only()
 @app_commands.describe(channel="The channel to display the leaderboard in.")
 async def setup(interaction: discord.Interaction, channel: discord.TextChannel = None):
+    if not await check_user_permissions(interaction, "manage_channels"): return
+
     guild_id = interaction.guild.id
     if guild_id in guilds:
         await interaction.response.send_message("Bot is already set up in this server.")
@@ -590,9 +610,11 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
         return
 
 @tree.command(name="updatechannel", description="Update or add the channel to display the leaderboard in. (Also resends the leaderboard)")
-@app_commands.checks.has_permissions(manage_channels=True)
+@app_commands.guild_only()
 @app_commands.describe(channel="The channel to display the leaderboard in.")
 async def update_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if not await check_user_permissions(interaction, "manage_channels"): return
+
     guild_id = interaction.guild.id
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
@@ -606,8 +628,10 @@ async def update_channel(interaction: discord.Interaction, channel: discord.Text
     await interaction.response.send_message(f"Channel updated. Leaderboard will be displayed in {channel.mention}.")
 
 @tree.command(name="delete", description="Delete the Aura bot data for this server.")
-@app_commands.checks.has_permissions(administrator=True)
+@app_commands.guild_only()
 async def delete(interaction: discord.Interaction):
+    if not await check_user_permissions(interaction, "administrator"): return
+
     guild_id = interaction.guild.id
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
@@ -620,6 +644,7 @@ async def delete(interaction: discord.Interaction):
     await interaction.response.send_message("Data deleted. If this was a mistake, contact `@engiw` to restore data.")
 
 @tree.command(name="leaderboard", description="Show the current leaderboard.")
+@app_commands.guild_only()
 async def leaderboard(interaction: discord.Interaction):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
@@ -629,9 +654,11 @@ async def leaderboard(interaction: discord.Interaction):
     await interaction.response.send_message(embed=get_leaderboard(guild_id))
 
 @tree.command(name="logging", description="Enable or disable logging of aura changes.")
-@app_commands.checks.has_permissions(manage_channels=True)
+@app_commands.guild_only()
 @app_commands.describe(channel="The channel to log aura changes in. Leave empty to disable logging.")
 async def logging(interaction: discord.Interaction, channel: discord.TextChannel = None):
+    if not await check_user_permissions(interaction, "manage_channels"): return
+    
     guild_id = interaction.guild.id
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
@@ -656,6 +683,7 @@ async def logging(interaction: discord.Interaction, channel: discord.TextChannel
     update_time_and_save(guild_id, guilds)
 
 @tree.command(name="aura", description="Check your or another person's aura.")
+@app_commands.guild_only()
 @app_commands.describe(user="The user to check the aura of. Leave empty to check your own aura.")
 async def aura(interaction: discord.Interaction, user: discord.User = None):
     if user is None:
@@ -670,9 +698,11 @@ async def aura(interaction: discord.Interaction, user: discord.User = None):
     await interaction.response.send_message(embed=get_user_aura(guild_id, user.id))
 
 @tree.command(name="changeaura", description="Change a user's aura by this amount. Positive or negative. Admin only.")
-@app_commands.checks.has_permissions(administrator=True)
+@app_commands.guild_only()
 @app_commands.describe(user="The user to change the aura of.", amount="The amount to change the aura by. Positive or negative.")
 async def change_aura(interaction: discord.Interaction, user: discord.User, amount: int):
+    if not await check_user_permissions(interaction, "administrator"): return
+    
     guild_id = interaction.guild.id
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
@@ -690,9 +720,11 @@ async def change_aura(interaction: discord.Interaction, user: discord.User, amou
     await interaction.response.send_message(f"Changed <@{user.id}>'s aura by {amount}.")
 
 @tree.command(name="deny", description="Deny a user from giving or receiving aura.")
-@app_commands.checks.has_permissions(manage_channels=True)
-@app_commands.describe(user="The user to deny actions from.", action="The action to deny. `give`, `receive` or `both`.")
-async def deny(interaction: discord.Interaction, user: discord.User, action: str):
+@app_commands.guild_only()
+@app_commands.describe(user="The user to deny actions from.", action="The action to deny.")
+async def deny(interaction: discord.Interaction, user: discord.User, action: Literal["give", "receive", "both"]):
+    if not await check_user_permissions(interaction, "manage_channels"): return
+    
     guild_id = interaction.guild.id
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
@@ -734,9 +766,11 @@ async def deny(interaction: discord.Interaction, user: discord.User, action: str
         log_event(guild_id, user.id, interaction.user.id, event)
 
 @tree.command(name="allow", description="Allow a user to give or receive aura.")
-@app_commands.checks.has_permissions(manage_channels=True)
-@app_commands.describe(user="The user to allow actions from.", action="The action to allow. `give`, `receive` or `both`.")
-async def allow(interaction: discord.Interaction, user: discord.User, action: str):
+@app_commands.guild_only()
+@app_commands.describe(user="The user to allow actions from.", action="The action to allow.")
+async def allow(interaction: discord.Interaction, user: discord.User, action: Literal["give", "receive", "both"]):
+    if not await check_user_permissions(interaction, "manage_channels"): return
+    
     guild_id = interaction.guild.id
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
@@ -778,6 +812,7 @@ async def allow(interaction: discord.Interaction, user: discord.User, action: st
         log_event(guild_id, user.id, interaction.user.id, event)
 
 @opt_group.command(name="in", description="Opt in to aura tracking.")
+@app_commands.guild_only()
 async def opt_in(interaction: discord.Interaction):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
@@ -796,6 +831,7 @@ async def opt_in(interaction: discord.Interaction):
     await interaction.response.send_message("You are now opted in.")
 
 @opt_group.command(name="out", description="Opt out of aura tracking.")
+@app_commands.guild_only()
 async def opt_out(interaction: discord.Interaction):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
@@ -814,9 +850,11 @@ async def opt_out(interaction: discord.Interaction):
     await interaction.response.send_message("You are now opted out.")
 
 @emoji_group.command(name="add", description="Add an emoji to tracking.")
-@app_commands.checks.has_permissions(manage_channels=True)
+@app_commands.guild_only()
 @app_commands.describe(emoji="The emoji to start tracking.", points="The points impact for the emoji. Positive or negative.")
 async def add_emoji(interaction: discord.Interaction, emoji: str, points: int):
+    if not await check_user_permissions(interaction, "manage_channels"): return
+    
     guild_id = interaction.guild.id
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
@@ -844,9 +882,11 @@ async def add_emoji(interaction: discord.Interaction, emoji: str, points: int):
         return
 
 @emoji_group.command(name="remove", description="Remove an emoji from tracking.")
-@app_commands.checks.has_permissions(manage_channels=True)
+@app_commands.guild_only()
 @app_commands.describe(emoji="The emoji to stop tracking.")
 async def remove_emoji(interaction: discord.Interaction, emoji: str):
+    if not await check_user_permissions(interaction, "manage_channels"): return
+    
     guild_id = interaction.guild.id
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
@@ -862,9 +902,11 @@ async def remove_emoji(interaction: discord.Interaction, emoji: str):
     await interaction.response.send_message(f"Emoji {emoji} removed from tracking.")
 
 @emoji_group.command(name="update", description="Update the points of an emoji.")
-@app_commands.checks.has_permissions(manage_channels=True)
+@app_commands.guild_only()
 @app_commands.describe(emoji="The emoji to update.", points="The new points impact for the emoji. Positive or negative.")
 async def update_emoji(interaction: discord.Interaction, emoji: str, points: int):
+    if not await check_user_permissions(interaction, "manage_channels"): return
+    
     guild_id = interaction.guild.id
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
@@ -884,6 +926,7 @@ async def update_emoji(interaction: discord.Interaction, emoji: str, points: int
     await interaction.response.send_message(f"Emoji {emoji} updated: worth {points} points.")
 
 @emoji_group.command(name="list", description="List the emojis being tracked in this server.")
+@app_commands.guild_only()
 async def list_emoji(interaction: discord.Interaction):
     guild_id = interaction.guild.id
 
