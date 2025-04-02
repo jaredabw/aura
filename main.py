@@ -3,18 +3,16 @@ import discord
 import json
 import time
 import os
-import emoji as emojilib
 from discord import app_commands
 from discord.ext import tasks
 from dataclasses import dataclass, field
 from typing import Dict
 from dotenv import load_dotenv
+from emoji import is_emoji
 from collections import defaultdict, deque
 from enum import Enum
 
 # TODO: fix command permissions 
-
-# TODO: change add and remove strings throughout code to be enums
 
 # TODO: penalise and forgive: if penalised, gain half and lose double
 # TODO: implement increasing cooldown if spamming? idk how to do this. probably hard
@@ -79,6 +77,7 @@ class LogEvent(Enum):
 @dataclass
 class User:
     aura: int = 0
+    aura_contribution: int = 0
     num_pos_given: int = 0
     num_pos_received: int = 0
     num_neg_given: int = 0
@@ -115,6 +114,7 @@ def load_data(filename="data.json"):
                 users = {
                     int(user_id): User(
                         aura=data["aura"],
+                        aura_contribution=data["aura_contribution"],
                         num_pos_given=data["num_pos_given"],
                         num_pos_received=data["num_pos_received"],
                         num_neg_given=data["num_neg_given"],
@@ -160,6 +160,7 @@ def save_data(guilds: Dict[int, Guild], filename="data.json"):
         for user_id, user in guild.users.items():
             guild_data["users"][str(user_id)] = {
                 "aura": user.aura,
+                "aura_contribution": user.aura_contribution,
                 "num_pos_given": user.num_pos_given,
                 "num_pos_received": user.num_pos_received,
                 "num_neg_given": user.num_neg_given,
@@ -308,6 +309,7 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
                 one = -1
 
             guilds[guild_id].users[author_id].aura += points
+            guilds[guild_id].users[author_id].aura_contribution += points
 
             if guilds[guild_id].reactions[emoji].points > 0:
                 guilds[guild_id].users[user_id].num_pos_given += one
@@ -317,7 +319,7 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
                 guilds[guild_id].users[author_id].num_neg_received += one
 
             if guilds[guild_id].log_channel_id is not None:
-                log_aura_change(guild_id, user_id, author_id, event, emoji, points, f"https://discord.com/channels/{guild_id}/{payload.channel_id}/{payload.message_id}")
+                log_aura_change(guild_id, author_id, user_id, event, emoji, points, f"https://discord.com/channels/{guild_id}/{payload.channel_id}/{payload.message_id}")
 
             update_time_and_save(guild_id, guilds)
 
@@ -504,6 +506,7 @@ def get_user_aura(guild_id: int, user_id: int) -> discord.Embed:
     if user.opted_in:
         embed.description = f"<@{user_id}> has **{user.aura}** aura.\n"
         embed.description += f"*{tag}*\n\n"
+        embed.description += f"**{user.aura_contribution}** total aura contribution.\n\n"
         embed.description += f"**{user.num_pos_given}** positive reactions given.\n"
         embed.description += f"**{user.num_pos_received}** positive reactions received.\n"
         embed.description += f"**{user.num_neg_given}** negative reactions given.\n"
@@ -828,7 +831,7 @@ async def add_emoji(interaction: discord.Interaction, emoji: str, points: int):
         return
 
     try:
-        if emojilib.is_emoji(emoji) or discord.utils.get(interaction.guild.emojis, id=int(emoji.split(":")[2][:-1])):
+        if is_emoji(emoji) or discord.utils.get(interaction.guild.emojis, id=int(emoji.split(":")[2][:-1])):
             guilds[guild_id].reactions[emoji] = EmojiReaction(points=points)
             update_time_and_save(guild_id, guilds)
             await update_info(guild_id)
