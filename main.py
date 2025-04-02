@@ -12,6 +12,8 @@ from emoji import is_emoji
 from collections import defaultdict, deque
 from enum import Enum
 
+# TODO: confirmation checks for /delete, /clear users, /clear emojis and /config reset 
+
 # TODO: customisable leaderboard: all time / this week / this month
 # 1. maintain daily/hourly leaderboard snapshots: copy whole json file and name with timestamp
 # 2. keep for a month and then delete
@@ -20,9 +22,6 @@ from enum import Enum
 # 5. monthly leaderboard: current score - last month's score
 
 # TODO: penalise and forgive: if penalised, gain half and lose double
-
-# TODO: /clear emojis, without deleting the leaderboard
-# TODO: /clear leaderboard, without deleting the emojis
 
 # TODO: add pagination to leaderboard and emoji list
 # TODO: aura based role rewards
@@ -674,7 +673,9 @@ def log_event(guild_id: int, recipient_id: int, user_id: int, event: LogEvent, p
 
 @tasks.loop(seconds=LOGGING_INTERVAL)
 async def send_batched_logs():
-    '''Send all batched logs to the respective guild's log channel.'''
+    '''Send all batched logs to the respective guild's log channel.
+    
+    Runs every `LOGGING_INTERVAL` seconds.'''
     for guild_id, logs in list(log_cache.items()):
         if logs:
             channel_id = guilds[guild_id].log_channel_id
@@ -855,11 +856,13 @@ def get_user_aura(guild_id: int, user_id: int) -> discord.Embed:
 @tasks.loop(seconds=UPDATE_INTERVAL)
 async def update_leaderboards(skip=False):
     '''Update the leaderboard and emoji list for all guilds.
+
+    Runs every `UPDATE_INTERVAL` seconds.
     
     Parameters
     ----------
     skip: `bool`, optional
-        Whether to ignore the update interval and force an update. Defaults to `False`. Is true when the bot is first started.'''
+        Whether to ignore the update interval and force an update. Defaults to `False`. Is True when the bot is first started.'''
     for guild_id in guilds:
         guild = guilds[guild_id]
         if skip or int(time.time()) - guild.last_update < UPDATE_INTERVAL + 10: # if the last update was less than LIMIT seconds ago. ie: if there is new data to display
@@ -989,13 +992,20 @@ async def delete(interaction: discord.Interaction):
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
 
+    view = ConfirmView(interaction.user.id)
+    await interaction.response.send_message("Are you sure you want to delete the entire server's data?", view=view)
+
+    await view.wait()
+    if not view.value:
+        return
+
     data = json.dumps({str(guild_id): guilds[guild_id]}, default=lambda o: o.__dict__, indent=4)
 
     with open("deleted_data.json", "a") as f:
         f.write(data)
 
     await (client.get_user(355938178265251842)).send(f"Guild {guild_id} data was deleted. Data was as follows", file=discord.File("deleted_data.json"))
-    await interaction.response.send_message("Data deleted. If this was a mistake, contact `@engiw` to restore data. Final data is attached.", file=discord.File("deleted_data.json"))
+    await interaction.channel.send("Data deleted. If this was a mistake, contact `@engiw` to restore data. Final data is attached.", file=discord.File("deleted_data.json"))
 
     await update_info(guild_id)
     del guilds[guild_id]
@@ -1380,7 +1390,7 @@ async def config_reset(interaction: discord.Interaction):
     update_time_and_save(guild_id, guilds)
     await interaction.response.send_message("Configuration reset to default.")
 
-@clear_group.command(name="emojis", description="Clear all emojis.")
+@clear_group.command(name="emojis", description="Clear all emojis from tracking.")
 @app_commands.guild_only()
 async def clear_emojis(interaction: discord.Interaction):
     if not await check_user_permissions(interaction, "administrator"): return
@@ -1390,12 +1400,19 @@ async def clear_emojis(interaction: discord.Interaction):
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
+    
+    view = ConfirmView(interaction.user.id)
+    await interaction.response.send_message("Are you sure you want to clear all emojis from tracking?", view=view)
+
+    await view.wait()
+    if not view.value:
+        return
 
     data = json.dumps({"reactions": guilds[guild_id].reactions}, default=lambda o: o.__dict__, indent=4)
     with open("emojis_data.json", "w") as f:
         f.write(data)
 
-    await interaction.response.send_message(f"Cleared all emojis. If this was a mistake, contact `@engiw` to restore data. Final data is attached.", file=discord.File("emojis_data.json"))
+    await interaction.channel.send(f"Cleared all emojis. If this was a mistake, contact `@engiw` to restore data. Final data is attached.", file=discord.File("emojis_data.json"))
     guilds[guild_id].reactions = {}
 
     update_time_and_save(guild_id, guilds)
@@ -1413,12 +1430,19 @@ async def clear_leaderboard(interaction: discord.Interaction):
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
+    
+    view = ConfirmView(interaction.user.id)
+    await interaction.response.send_message("Are you sure you want to clear all user and aura data?", view=view)
+
+    await view.wait()
+    if not view.value:
+        return
 
     data = json.dumps({"users": guilds[guild_id].users}, default=lambda o: o.__dict__, indent=4)
     with open("user_data.json", "w") as f:
         f.write(data)
 
-    await interaction.response.send_message(f"Cleared all user and aura data. If this was a mistake, contact `@engiw` to restore data. Final data is attached.", file=discord.File("user_data.json"))
+    await interaction.channel.send(f"Cleared all user and aura data. If this was a mistake, contact `@engiw` to restore data. Final data is attached.", file=discord.File("user_data.json"))
     guilds[guild_id].users = {}
 
     update_time_and_save(guild_id, guilds)
@@ -1426,5 +1450,39 @@ async def clear_leaderboard(interaction: discord.Interaction):
     update_leaderboards(True)
 
     os.remove("user_data.json")
+
+class ConfirmView(discord.ui.View):
+    def __init__(self, user_id: int):
+        super().__init__(timeout=10)
+        self.user_id = user_id
+        self.value = None
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.danger)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.value is not None:
+            await interaction.response.defer()
+
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You are not authorised to confirm this action.", ephemeral=True)
+            return
+
+        self.value = True
+        await interaction.message.edit(content="Action confirmed.", view=None)
+        await interaction.response.defer()
+        self.stop()
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.value is not None:
+            await interaction.response.defer()
+
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You are not authorised to cancel this action.", ephemeral=True)
+            return
+
+        self.value = False
+        await interaction.message.edit(content="Action cancelled.", view=None)
+        await interaction.response.defer()
+        self.stop()
 
 client.run(TOKEN)
