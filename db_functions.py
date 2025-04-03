@@ -1,3 +1,5 @@
+'''Provides functions to load and save data to a SQLite database.'''
+
 import sqlite3
 import time
 

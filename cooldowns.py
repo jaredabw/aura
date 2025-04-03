@@ -1,4 +1,7 @@
+'''Contains the CooldownManager class, which manages the cooldowns for reactions across all guilds.'''
+
 import time
+
 from collections import defaultdict
 from models import *
 

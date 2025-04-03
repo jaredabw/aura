@@ -1,3 +1,5 @@
+'''Contains the data models for the aura system.'''
+
 from dataclasses import dataclass, field
 from enum import Enum
 
