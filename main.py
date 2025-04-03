@@ -159,7 +159,7 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
                 one = -1
 
             guilds[guild_id].users[author_id].aura += points
-            guilds[guild_id].users[author_id].aura_contribution += points
+            guilds[guild_id].users[user_id].aura_contribution += points
 
             if guilds[guild_id].reactions[emoji].points > 0:
                 guilds[guild_id].users[user_id].num_pos_given += one
