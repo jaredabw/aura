@@ -108,10 +108,10 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
 
         if emoji in guilds[guild_id].reactions:
             # message_author_id is not in the payload on removal, so we need to fetch the message to get it
-            payload.message_author_id = (await client.get_channel(payload.channel_id).fetch_message(payload.message_id)).author.id
+            author_id = (await client.get_channel(payload.channel_id).fetch_message(payload.message_id)).author.id
 
             # check if user is bot
-            if client.get_user(payload.message_author_id).bot:
+            if client.get_user(author_id).bot:
                 return
 
             if author_id not in guilds[guild_id].users:
