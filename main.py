@@ -3,14 +3,19 @@ import discord
 import json
 import time
 import os
+
 from discord import app_commands
 from discord.ext import tasks
-from dataclasses import dataclass, field
-from typing import Dict, Literal
+from typing import Literal
 from dotenv import load_dotenv
 from emoji import is_emoji
 from collections import defaultdict, deque
-from enum import Enum
+
+from models import *
+from db_functions import *
+from cooldowns import CooldownManager
+
+# TODO: if using SQLite, way to import from json and export to json
 
 # TODO: customisable leaderboard: all time / this week / this month
 # 1. maintain daily/hourly leaderboard snapshots: copy whole json file and name with timestamp
@@ -32,316 +37,10 @@ TOKEN = os.getenv("TOKEN")
 UPDATE_INTERVAL = 10 # how often to update the leaderboard
 LOGGING_INTERVAL = 10 # how often to send logs
 
+OWNER_ID = 355938178265251842
+
 with open("help.txt", "r", encoding="utf-8") as help_file:
     HELP_TEXT = help_file.read()
-
-class ReactionEvent(Enum):
-    '''Enumeration that represents the type of reaction event: `ADD` or `REMOVE`.
-
-    Members
-    --------
-    ADD: `ReactionEvent`
-        Represents the addition of a reaction.
-    REMOVE: `ReactionEvent`
-        Represents the removal of a reaction.
-
-    Attributes
-    ----------
-    base: `str`
-        The infinitive form of the event.
-    present: `str`
-        The present participle form of the event.
-    past: `str`
-        The past participle form of the event.
-    is_add: `bool`
-        Whether the event is an addition or removal of a reaction.
-    '''
-    ADD = ("add", "adding", "added", True)
-    REMOVE = ("remove", "removing", "removed", False)
-
-    def __init__(self, base: str, present: str, past: str, is_add: bool):
-        self.base = base
-        self.present = present
-        self.past = past
-        self.is_add = is_add
-
-    def __bool__(self):
-        return self.is_add
-
-class LogEvent(Enum):
-    '''Enumeration that represents the type of log event.
-    
-    Members
-    --------
-    MANUAL: `LogEvent`
-        Represents a manual change to a user's aura.
-    SPAMMING: `LogEvent`
-        Represents a user being temporarily banned for spamming reactions.
-    DENY_GIVING | DENY_RECEIVING | DENY_BOTH: `LogEvent`
-        Represents a user being denied from giving or receiving aura.
-    ALLOW_GIVING | ALLOW_RECEIVING | ALLOW_BOTH: `LogEvent`
-        Represents a user being allowed to give or receive aura.
-    '''
-    MANUAL = "manual"
-    SPAMMING = "spamming"
-    DENY_GIVING = "giving"
-    DENY_RECEIVING = "receiving"
-    DENY_BOTH = "giving and receiving"
-    ALLOW_GIVING = "give"
-    ALLOW_RECEIVING = "receive"
-    ALLOW_BOTH = "give and receive"
-
-    def __str__(self):
-        return self.value
-
-@dataclass
-class User:
-    '''Class that represents a user in a guild.
-    
-    Attributes
-    ----------
-    aura: `int`
-        The user's aura score.
-    aura_contribution: `int`
-        The user's net aura contribution to other users.
-    num_pos_given: `int`
-        The number of positive reactions the user has given.
-    num_pos_received: `int`
-        The number of positive reactions the user has received.
-    num_neg_given: `int`
-        The number of negative reactions the user has given.
-    num_neg_received: `int`
-        The number of negative reactions the user has received.
-    opted_in: `bool`
-        Whether the user has opted in to aura tracking. Defaults to `True`.
-    giving_allowed: `bool`
-        Whether the user is allowed to give aura. Defaults to `True`.
-    receiving_allowed: `bool`
-        Whether the user is allowed to receive aura. Defaults to `True`.'''
-    aura: int = 0
-    aura_contribution: int = 0
-    num_pos_given: int = 0
-    num_pos_received: int = 0
-    num_neg_given: int = 0
-    num_neg_received: int = 0
-    opted_in: bool = True
-    giving_allowed: bool = True
-    receiving_allowed: bool = True
-
-@dataclass
-class UserCooldowns:
-    '''Class that represents the cooldowns for a user in a guild.
-    
-    Attributes
-    ----------
-    add_cooldown_began: `int`
-        The timestamp when the add cooldown began.
-    remove_cooldown_began: `int`
-        The timestamp when the remove cooldown began.'''
-    add_cooldown_began: int = 0
-    remove_cooldown_began: int = 0
-
-@dataclass
-class EmojiReaction:
-    '''Class that represents an emoji reaction in a guild.
-    
-    Attributes
-    ----------
-    points: `int`
-        The number of aura points the reaction gives or takes away.'''
-    points: int = 0
-
-@dataclass
-class Limits:
-    '''Class that represents the configured limits and cooldowns for a guild.
-
-    All time limits are in seconds.
-
-    Defaults to the following values:  
-    `interval_long` = 60  
-    `threshold_long` = 10  
-    `interval_short` = 15  
-    `threshold_short` = 5  
-    `penalty` = 300  
-    `adding_cooldown` = 10  
-    `removing_cooldown` = 10  
-
-    Attributes
-    ----------
-    interval_long: `int`
-        The long interval for the reaction limit.
-    threshold_long: `int`
-        The threshold for the long interval.
-    interval_short: `int`
-        The short interval for the reaction limit.
-    threshold_short: `int`
-        The threshold for the short interval.
-    penalty: `int`
-        The penalty for exceeding the limits.
-    adding_cooldown: `int`
-        The cooldown for adding reactions.
-    removing_cooldown: `int`
-        The cooldown for removing reactions.'''
-    interval_long: int = 60
-    threshold_long: int = 10
-    interval_short: int = 15
-    threshold_short: int = 5
-    penalty: int = 300
-    adding_cooldown: int = 10
-    removing_cooldown: int = 10
-
-@dataclass
-class Guild:
-    '''Class that represents a guild.
-    
-    Attributes
-    ----------
-    users: `Dict[int, User]`
-        A dictionary of users in the guild, where the key is the user ID and the value is a `User` object.
-    reactions: `Dict[str, EmojiReaction]`
-        A dictionary of emoji reactions in the guild, where the key is the emoji and the value is an `EmojiReaction` object.
-    info_msg_id: `int`
-        The ID of the message that contains the emoji list.
-    board_msg_id: `int`
-        The ID of the message that contains the leaderboard.
-    msgs_channel_id: `int`
-        The ID of the channel where the leaderboard and emoji list are displayed.
-    log_channel_id: `int`
-        The ID of the channel where aura changes are logged.
-    last_update: `int`
-        The timestamp of the last update to the guild data.'''
-    users: Dict[int, User] = field(default_factory=dict)
-    reactions: Dict[str, EmojiReaction] = field(default_factory=dict)
-    info_msg_id: int = None
-    board_msg_id: int = None
-    msgs_channel_id: int = None
-    log_channel_id: int = None
-    last_update: int = None
-    limits: Limits = field(default_factory=Limits)
-
-def load_data(filename="data.json"):
-    '''Load the guild data from a JSON file.
-    
-    If the file does not exist or is empty, create a new file with an empty guilds dictionary.
-    
-    Parameters
-    ----------
-    filename: `str`, optional
-        The name of the file to load the data from. Defaults to "data.json".'''
-    try:
-        with open(filename, "r") as file:
-            raw_data: dict[str, dict[int, dict]] = json.load(file)
-            guilds: dict[int, Guild] = {}
-            for guild_id, guild in raw_data.get("guilds", {}).items():
-                users = {
-                    int(user_id): User(
-                        aura=data["aura"],
-                        aura_contribution=data["aura_contribution"],
-                        num_pos_given=data["num_pos_given"],
-                        num_pos_received=data["num_pos_received"],
-                        num_neg_given=data["num_neg_given"],
-                        num_neg_received=data["num_neg_received"],
-                        opted_in=data["opted_in"],
-                        giving_allowed=data["giving_allowed"],
-                        receiving_allowed=data["receiving_allowed"]
-                    ) for user_id, data in guild.get("users", {}).items()
-                    }
-                reactions = {emoji: EmojiReaction(points=data["points"]) for emoji, data in guild.get("reactions", {}).items()}
-                limits_data: dict = guild.get("limits", {})
-                limits = Limits(
-                    interval_long=limits_data.get("interval_long", 60),
-                    threshold_long=limits_data.get("threshold_long", 10),
-                    interval_short=limits_data.get("interval_short", 15),
-                    threshold_short=limits_data.get("threshold_short", 5),
-                    penalty=limits_data.get("penalty", 300),
-                    adding_cooldown=limits_data.get("adding_cooldown", 10),
-                    removing_cooldown=limits_data.get("removing_cooldown", 10)
-                )
-                guilds[int(guild_id)] = Guild(
-                    users=users,
-                    reactions=reactions,
-                    limits=limits,
-                    info_msg_id=guild.get("info_msg_id", None),
-                    board_msg_id=guild.get("board_msg_id", None),
-                    msgs_channel_id=guild.get("msgs_channel_id", None),
-                    log_channel_id=guild.get("log_channel_id", None),
-                    last_update=guild.get("last_update", None)
-                )
-
-        return guilds
-    except (FileNotFoundError, json.JSONDecodeError):
-        with open(filename, "w") as file:
-            json.dump({"guilds": {}}, file, indent=4)
-        print("No data found, created a new data file.")
-        return {}
-
-def save_data(guilds: Dict[int, Guild], filename="data.json"):
-    '''Save the guild data to a JSON file.
-    
-    Parameters
-    ----------
-    guilds: `Dict[int, Guild]`
-        A dictionary of guilds, where the key is the guild ID and the value is a `Guild` object.
-    filename: `str`, optional
-        The name of the file to save the data to. Defaults to "data.json".'''
-    # Convert the guilds data back to a dict to save in JSON
-    save_data = {"guilds": {}}
-
-    for guild_id, guild in guilds.items():
-        guild_data = {
-            "users": {},
-            "reactions": {},
-            "limits": {},
-            "info_msg_id": guild.info_msg_id,
-            "board_msg_id": guild.board_msg_id,
-            "msgs_channel_id": guild.msgs_channel_id,
-            "log_channel_id": guild.log_channel_id,
-            "last_update": guild.last_update
-        }
-
-        for user_id, user in guild.users.items():
-            guild_data["users"][str(user_id)] = {
-                "aura": user.aura,
-                "aura_contribution": user.aura_contribution,
-                "num_pos_given": user.num_pos_given,
-                "num_pos_received": user.num_pos_received,
-                "num_neg_given": user.num_neg_given,
-                "num_neg_received": user.num_neg_received,
-                "opted_in": user.opted_in,
-                "giving_allowed": user.giving_allowed,
-                "receiving_allowed": user.receiving_allowed
-                }
-        
-        for emoji, reaction in guild.reactions.items():
-            guild_data["reactions"][emoji] = {"points": reaction.points}
-
-        guild_data["limits"] = {
-            "interval_long": guild.limits.interval_long,
-            "threshold_long": guild.limits.threshold_long,
-            "interval_short": guild.limits.interval_short,
-            "threshold_short": guild.limits.threshold_short,
-            "penalty": guild.limits.penalty,
-            "adding_cooldown": guild.limits.adding_cooldown,
-            "removing_cooldown": guild.limits.removing_cooldown
-        }
-
-        save_data["guilds"][guild_id] = guild_data
-    #
-
-    with open(filename, "w") as file:
-        json.dump(save_data, file, indent=4)
-
-def update_time_and_save(guild_id: int, guilds: Dict[int, Guild]):
-    '''Update the last update time for a guild and save the data.
-    
-    Parameters
-    ----------
-    guild_id: `int`
-        The ID of the guild to update.
-    guilds: `Dict[int, Guild]`
-        A dictionary of guilds, where the key is the guild ID and the value is a `Guild` object.'''
-    guilds[guild_id].last_update = int(time.time())
-    save_data(guilds)
 
 intents = discord.Intents.default()
 intents.members = True # required for client.get_user() and client.fetch_message().author
@@ -362,83 +61,9 @@ guilds = load_data()
 log_cache = defaultdict(list)
 rolling_add: defaultdict[tuple, deque] = defaultdict(deque)
 rolling_remove: defaultdict[tuple, deque] = defaultdict(deque)
-temp_banned_users = defaultdict(list) # {guild_id: [user_id]}
+temp_banned_users: defaultdict[int, list] = defaultdict(list)
 
-cooldowns: dict[tuple[int], UserCooldowns] = defaultdict(dict)
-# this lives in memory as it is not super important to be persistent
-# if the bot restarted we have a bigger problem anyway
-
-def ensure_cooldown(guild_id: int, user_id: int, author_id: int) -> None:
-    '''Ensure a cooldown object exists for a guild-user-author group.
-    
-    Parameters
-    ----------
-    guild_id: `int`
-        The ID of the guild.
-    user_id: `int`
-        The ID of the user giving or removing the reaction.
-    author_id: `int`
-        The ID of the user receiving the reaction.'''
-    if (guild_id, user_id, author_id) not in cooldowns:
-        cooldowns[(guild_id, user_id, author_id)] = UserCooldowns()
-
-def start_cooldown(guild_id: int, user_id: int, author_id: int, event: ReactionEvent) -> None:
-    '''Start the event cooldown for a guild-user-author.
-    
-    Parameters
-    ----------
-    guild_id: `int`
-        The ID of the guild.
-    user_id: `int`
-        The ID of the user giving or removing the reaction.
-    author_id: `int`
-        The ID of the user receiving the reaction.
-    event: `ReactionEvent`
-        The event type that triggered the cooldown.'''
-    ensure_cooldown(guild_id, user_id, author_id)
-    if event.is_add:
-        cooldowns[(guild_id, user_id, author_id)].add_cooldown_began = int(time.time())
-    else:
-        cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began = int(time.time())
-
-def end_cooldown(guild_id: int, user_id: int, author_id: int, event: ReactionEvent) -> None:
-    '''End the event cooldown early for a guild-user-author.
-    
-    Parameters
-    ----------
-    guild_id: `int`
-        The ID of the guild.
-    user_id: `int`
-        The ID of the user giving or removing the reaction.
-    author_id: `int`
-        The ID of the user receiving the reaction.
-    event: `ReactionEvent`
-        The event type that triggered the cooldown.'''
-    ensure_cooldown(guild_id, user_id, author_id)
-    if event.is_add:
-        cooldowns[(guild_id, user_id, author_id)].add_cooldown_began = 0
-    else:
-        cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began = 0
-
-def is_cooldown_complete(guild_id: int, user_id: int, author_id: int, event: ReactionEvent) -> bool:
-    '''Check if the event cooldown is complete for a guild-user-author.
-    
-    Parameters
-    ----------
-    guild_id: `int`
-        The ID of the guild.
-    user_id: `int`
-        The ID of the user giving or removing the reaction.
-    author_id: `int`
-        The ID of the user receiving the reaction.
-    event: `ReactionEvent`
-        The event type that triggered the cooldown.'''
-    ensure_cooldown(guild_id, user_id, author_id)
-    # does not need to set it back to 0 because if the user isnt on cooldown anymore it makes no difference when checking: will still be true either way.
-    if event.is_add:
-        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].add_cooldown_began >= guilds[guild_id].limits.adding_cooldown
-    else:
-        return int(time.time()) - cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began >= guilds[guild_id].limits.removing_cooldown
+cooldowns = CooldownManager(guilds)
 
 @client.event
 async def on_ready():
@@ -512,20 +137,20 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
             await update_rolling_timelines(guild_id, user_id, event)
 
             # check if the user is on cooldown
-            if not is_cooldown_complete(guild_id, user_id, author_id, event):
+            if not cooldowns.is_cooldown_complete(guild_id, user_id, author_id, event):
                 return
             
             opposite_event = ReactionEvent.REMOVE if event.is_add else ReactionEvent.ADD
             # reset cooldowns and get vals for next step
             if event.is_add:
-                start_cooldown(guild_id, user_id, author_id, event)
-                end_cooldown(guild_id, user_id, author_id, opposite_event)
+                cooldowns.start_cooldown(guild_id, user_id, author_id, event)
+                cooldowns.end_cooldown(guild_id, user_id, author_id, opposite_event)
 
                 points = guilds[guild_id].reactions[emoji].points
                 one = 1
             else:
-                start_cooldown(guild_id, user_id, author_id, event)
-                end_cooldown(guild_id, user_id, author_id, opposite_event)
+                cooldowns.start_cooldown(guild_id, user_id, author_id, event)
+                cooldowns.end_cooldown(guild_id, user_id, author_id, opposite_event)
 
                 points = -guilds[guild_id].reactions[emoji].points
                 one = -1
@@ -1008,12 +633,12 @@ async def delete(interaction: discord.Interaction):
     with open("deleted_data.json", "a") as f:
         f.write(data)
 
-    await (client.get_user(355938178265251842)).send(f"Guild {guild_id} data was deleted. Data was as follows", file=discord.File("deleted_data.json"))
+    await (client.get_user(OWNER_ID)).send(f"Guild {guild_id} data was deleted. Data was as follows", file=discord.File("deleted_data.json"))
     await interaction.channel.send("Data deleted. If this was a mistake, contact `@engiw` to restore data. Final data is attached.", file=discord.File("deleted_data.json"))
 
     await update_info(guild_id)
     del guilds[guild_id]
-    save_data(guilds)
+    update_time_and_save(guild_id, guilds)
 
     os.remove("deleted_data.json")
 
