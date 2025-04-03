@@ -2,8 +2,10 @@
 This module contains the Functions class, which provides various utility functions for the Aura Bot.'''
 
 import discord
+import datetime
+import sqlite3
 
-from config import UPDATE_INTERVAL
+from config import UPDATE_INTERVAL, DB
 from models import *
 
 class Functions:
@@ -30,14 +32,20 @@ class Functions:
         ----------
         guild_id: `int`
             The ID of the guild.
+        timeframe: `str`
+            The time period for the leaderboard ("all", "week", or "month").
         persistent: `bool`, optional
             Whether the leaderboard is persistent and should be edited in the future or not. Defaults to `False`.
-            
+                
         Returns
         -------
         `discord.Embed`
             The embed containing the leaderboard information.'''
+        
+        # half this code was ai generated ngl
+
         embed = discord.Embed(color=0x74327a)
+
         if persistent:
             mins = UPDATE_INTERVAL // 60
             secs = UPDATE_INTERVAL % 60
@@ -45,18 +53,80 @@ class Functions:
                 embed.set_footer(text=f"Updates every {mins}m{' ' if secs > 0 else ''}{secs}{'s' if secs > 0 else ''}.")
             else:
                 embed.set_footer(text=f"Updates every {secs}s.")
+
         embed.description = ""
+        suffix = " (Week Change)" if timeframe == "week" else " (Month Change)" if timeframe == "month" else ""
+        embed.set_author(name=f"🏆 {self.client.get_guild(guild_id).name} Aura Leaderboard{suffix}")
 
-        embed.set_author(name=f"🏆 {self.client.get_guild(guild_id).name} Aura Leaderboard")
+        now = datetime.datetime.now()
 
-        leaderboard = sorted(self.guilds[guild_id].users.items(), key=lambda item: item[1].aura, reverse=True)
-        leaderboard = [(user_id, user) for user_id, user in leaderboard if user.opted_in]
+        if timeframe == "all":
+            leaderboard = sorted(self.guilds[guild_id].users.items(), key=lambda item: item[1].aura, reverse=True)
+            leaderboard = [(user_id, user.aura) for user_id, user in leaderboard if user.opted_in]
 
-        iconurl = self.client.get_user(leaderboard[0][0]).avatar.url if (len(leaderboard) > 0 and self.client.get_user(leaderboard[0][0]) is not None) else None
-        embed.set_thumbnail(url=iconurl)
+        elif timeframe in ["week", "month"]:
+            conn = sqlite3.connect(DB)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
 
-        for i, (user_id, user) in enumerate(leaderboard):
-            embed.description += f"{i+1}. **{user.aura}** | <@{user_id}>\n"
+            if timeframe == "week":
+                start_of_period = now - datetime.timedelta(days=7)
+            elif timeframe == "month":
+                start_of_period = now - datetime.timedelta(days=30)
+
+            cursor.execute('''
+                SELECT user_id, aura, snapshot_time
+                FROM user_snapshots
+                WHERE guild_id = ? AND snapshot_time <= ?
+                ORDER BY snapshot_time DESC
+            ''', (guild_id, start_of_period))
+
+            leaderboard_data = cursor.fetchall()
+
+            latest_snapshots = {}
+
+            # Loop through the leaderboard data and keep the latest snapshot per user
+            for row in leaderboard_data:
+                user_id = row['user_id']
+                snapshot_time = row['snapshot_time']
+
+                # Check if this user has been added to the dictionary or if this snapshot is later
+                if user_id not in latest_snapshots or snapshot_time > latest_snapshots[user_id]['snapshot_time']:
+                    latest_snapshots[user_id] = row
+
+            # Now, latest_snapshots contains only the latest snapshot for each user
+            leaderboard = [(snapshot['user_id'], snapshot['aura']) for snapshot in latest_snapshots.values()]
+
+            if len(leaderboard_data) == 0:
+                # fall back to current leaderboard
+                leaderboard = sorted(self.guilds[guild_id].users.items(), key=lambda item: item[1].aura, reverse=True)
+                leaderboard = [(user_id, user.aura) for user_id, user in leaderboard if user.opted_in]
+            else:
+                # else calculate the diff
+                leaderboard = []
+
+                current_data = {user_id: user.aura for user_id, user in self.guilds[guild_id].users.items()}
+
+                for snapshot in leaderboard_data:
+                    user_id = snapshot['user_id']
+                    past_aura = snapshot['aura']
+                    current_aura = current_data.get(user_id, 0)  # Default to 0 if no current data
+                    gain = current_aura - past_aura
+
+                    if self.guilds[guild_id].users.get(user_id, {}).opted_in:
+                        leaderboard.append((user_id, gain))
+
+                leaderboard.sort(key=lambda item: item[1], reverse=True)
+
+        if len(leaderboard) == 0:
+            embed.description = "No leaderboard data available."
+        else:
+            iconurl = self.client.get_user(leaderboard[0][0]).avatar.url if len(leaderboard) > 0 else None
+            embed.set_thumbnail(url=iconurl)
+
+            for i, (user_id, gain) in enumerate(leaderboard):
+                embed.description += f"{i+1}. **{gain}** | <@{user_id}>\n"
+
         return embed
 
     # need to add pagination/multiple embeds

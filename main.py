@@ -19,13 +19,6 @@ from config import HELP_TEXT, OWNER_ID
 
 # TODO: add to top.gg
 
-# TODO: customisable leaderboard: all time / this week / this month
-# 1. maintain daily/hourly leaderboard snapshots: copy whole json file and name with timestamp
-# 2. keep for a month and then delete
-# 3. all time leaderboard: current score
-# 4. weekly leaderboard: current score - last week's score
-# 5. monthly leaderboard: current score - last month's score
-
 # TODO: penalise and forgive: if penalised, gain half and lose double
 
 # TODO: add pagination to leaderboard and emoji list
@@ -282,6 +275,8 @@ async def leaderboard(interaction: discord.Interaction, timeframe: Literal["all"
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
+
+    timeframe = timeframe.lower()
 
     if timeframe not in ["all", "week", "month"]:
         await interaction.response.send_message("Invalid timeframe. Must be one of: `all`, `week`, `month`.")
