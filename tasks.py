@@ -2,12 +2,14 @@
 
 import discord
 import time
+import datetime
+import sqlite3
 
 from discord.ext import tasks
 
 from models import Guild
 from funcs import Functions
-from config import UPDATE_INTERVAL
+from config import UPDATE_INTERVAL, DB
 
 class TasksManager:
     def __init__(self, client: discord.Client, guilds: dict[int, Guild], funcs: Functions):
@@ -46,3 +48,32 @@ class TasksManager:
                             pass
                         except discord.Forbidden:
                             print(f"Forbidden to send leaderboard to channel {guild.msgs_channel_id} in guild {guild_id}.")
+
+    @tasks.loop(time=[datetime.time(hour=0, minute=0), datetime.time(hour=12, minute=0)])
+    async def take_snapshots_and_cleanup():
+        now = datetime.datetime.now()
+
+        conn = sqlite3.connect(DB)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            INSERT INTO user_snapshots (
+                guild_id, user_id, aura, aura_contribution, 
+                num_pos_given, num_pos_received, num_neg_given, num_neg_received
+            )
+            SELECT 
+                guild_id, user_id, aura, aura_contribution, 
+                num_pos_given, num_pos_received, num_neg_given, num_neg_received
+            FROM users
+        ''')
+
+        cursor.execute('''
+            DELETE FROM user_snapshots 
+            WHERE snapshot_time < DATETIME('now', '-30 days')
+        ''')
+
+        conn.commit()
+        conn.close()
+
+        print(f"Snapshots taken and old data cleaned up at {now.strftime('%Y-%m-%d %H:%M:%S')}")

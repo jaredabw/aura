@@ -67,10 +67,16 @@ async def on_ready():
     await tree.sync()
 
     await client.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="for aura changes"))
+
+    if not tasks_manager.take_snapshots_and_cleanup.is_running():
+        print("Starting daily snapshot and cleanup loop...")
+        tasks_manager.take_snapshots_and_cleanup.start()
+
     if not tasks_manager.update_leaderboards.is_running():
         print("Starting leaderboard update loop...")
         await tasks_manager.update_leaderboards(skip=True)
         tasks_manager.update_leaderboards.start()
+
     if not logging_manager.send_batched_logs.is_running():
         print("Starting logging loop...")
         await logging_manager.send_batched_logs()
