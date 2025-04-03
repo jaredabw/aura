@@ -69,8 +69,8 @@ def load_data(db_filename="aura_data.db") -> dict[int, Guild]:
 
         reactions = {}
         for reaction_row in reaction_rows:
-            reactions[reaction_row[0]] = EmojiReaction(
-                points=reaction_row[1]
+            reactions[reaction_row[1]] = EmojiReaction(
+                points=reaction_row[2]
             )
 
         cursor.execute("SELECT * FROM limits WHERE guild_id = ?", (guild_id,))
@@ -122,7 +122,7 @@ def save_data(guilds: dict[int, Guild], db_filename="aura_data.db"):
 
     for guild_id, guild in guilds.items():
         cursor.execute("""
-            INSERT OR REPLACE INTO guilds (guild_id, info_msg_id, board_msg_id, msgs_channel_id, log_channel_id, last_update)
+            INSERT OR REPLACE INTO guilds (id, info_msg_id, board_msg_id, msgs_channel_id, log_channel_id, last_update)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (
             guild_id,
