@@ -3,6 +3,8 @@ LOGGING_INTERVAL = 10 # how often to send logs
 
 OWNER_ID = 355938178265251842
 
+DB = "aura_data.db" # database file name
+
 HELP_TEXT = '''Aura tracks emoji reactions and gives aura points to people based on the reactions they receive.
 
 __**SETUP:**__

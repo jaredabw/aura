@@ -4,7 +4,7 @@ import json
 import sqlite3
 import sys
 
-DB_FILENAME = "aura_data.db"
+from config import DB
 
 def insert_users(cursor: sqlite3.Cursor, guild_id: int, users: dict):
     """Insert user data into the database."""
@@ -45,7 +45,7 @@ def insert_guild_data(cursor: sqlite3.Cursor, guild_id: int, guild_data: dict):
 
 def insert_json_data(json_data: dict, guild_id: int):
     """Determine the type of data and insert it into the database."""
-    conn = sqlite3.connect(DB_FILENAME)
+    conn = sqlite3.connect(DB)
     cursor = conn.cursor()
 
     if "users" in json_data:

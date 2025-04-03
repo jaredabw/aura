@@ -5,6 +5,7 @@ import time
 
 from models import *
 from db_create import create_db
+from config import DB
 
 def update_time_and_save(guild_id: int, guilds: dict[int, Guild]):
     '''Update the last update time for a guild and save the data.
@@ -20,7 +21,7 @@ def update_time_and_save(guild_id: int, guilds: dict[int, Guild]):
         guilds[guild_id].last_update = int(time.time())
     save_data(guilds)
 
-def load_data(db_filename="aura_data.db") -> dict[int, Guild]:
+def load_data(db_filename=DB) -> dict[int, Guild]:
     '''Load the guild data from the SQLite database.
         
     Parameters
@@ -100,7 +101,7 @@ def load_data(db_filename="aura_data.db") -> dict[int, Guild]:
     conn.close()
     return guilds
 
-def save_data(guilds: dict[int, Guild], db_filename="aura_data.db"):
+def save_data(guilds: dict[int, Guild], db_filename=DB):
     '''Save the guild data to the SQLite database, ensuring deletions are handled.'''
     
     try:
