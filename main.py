@@ -9,12 +9,12 @@ from dotenv import load_dotenv
 from emoji import is_emoji
 
 from models import *
-from db_functions import *
+from db_functions import update_time_and_save, load_data
 from cooldowns import CooldownManager
 from funcs import Functions
 from tasks import TasksManager
 from logging_aura import LoggingManager
-from timelines import *
+from timelines import TimelinesManager
 from config import HELP_TEXT, OWNER_ID
 
 # TODO: add to top.gg
