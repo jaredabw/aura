@@ -7,8 +7,7 @@ from discord.ext import tasks
 
 from models import Guild
 from funcs import Functions
-
-UPDATE_INTERVAL = 10 # how often to update the leaderboard
+from config import UPDATE_INTERVAL
 
 class TasksManager:
     def __init__(self, client: discord.Client, guilds: dict[int, Guild], funcs: Functions):

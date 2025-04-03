@@ -3,7 +3,7 @@ This module contains the Functions class, which provides various utility functio
 
 import discord
 
-from tasks import UPDATE_INTERVAL
+from config import UPDATE_INTERVAL
 from models import *
 
 class Functions:

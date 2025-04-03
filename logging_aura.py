@@ -6,8 +6,7 @@ from discord.ext import tasks
 from collections import defaultdict
 
 from models import *
-
-LOGGING_INTERVAL = 10 # how often to send logs
+from config import LOGGING_INTERVAL
 
 class LoggingManager:
     def __init__(self, client: discord.Client, guilds: dict[int, Guild]):

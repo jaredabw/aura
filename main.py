@@ -19,6 +19,8 @@ from timelines import *
 
 # TODO: if using SQLite, way to import from json and export to json
 
+# SQL injection protection
+
 # TODO: customisable leaderboard: all time / this week / this month
 # 1. maintain daily/hourly leaderboard snapshots: copy whole json file and name with timestamp
 # 2. keep for a month and then delete
@@ -62,7 +64,7 @@ funcs = Functions(client, guilds)
 
 cooldown_manager = CooldownManager(guilds)
 logging_manager = LoggingManager(client, guilds)
-tasks_manager = TasksManager(client, guilds)
+tasks_manager = TasksManager(client, guilds, funcs)
 timelines_manager = TimelinesManager(client, guilds, logging_manager)
 
 
