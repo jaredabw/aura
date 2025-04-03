@@ -1,4 +1,3 @@
-import asyncio
 import discord
 import json
 import time
@@ -16,6 +15,7 @@ from funcs import Functions
 from tasks import TasksManager
 from logging_aura import LoggingManager
 from timelines import *
+from config import HELP_TEXT, OWNER_ID
 
 # TODO: if using SQLite, way to import from json and export to json
 
@@ -37,11 +37,6 @@ from timelines import *
 
 load_dotenv("token.env")
 TOKEN = os.getenv("TOKEN")
-
-OWNER_ID = 355938178265251842
-
-with open("help.txt", "r", encoding="utf-8") as help_file:
-    HELP_TEXT = help_file.read()
 
 intents = discord.Intents.default()
 intents.members = True # required for client.get_user() and client.fetch_message().author
@@ -145,16 +140,13 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
             
             opposite_event = ReactionEvent.REMOVE if event.is_add else ReactionEvent.ADD
             # reset cooldowns and get vals for next step
-            if event.is_add:
-                cooldown_manager.start_cooldown(guild_id, user_id, author_id, event)
-                cooldown_manager.end_cooldown(guild_id, user_id, author_id, opposite_event)
+            cooldown_manager.start_cooldown(guild_id, user_id, author_id, event)
+            cooldown_manager.end_cooldown(guild_id, user_id, author_id, opposite_event)
 
+            if event.is_add:
                 points = guilds[guild_id].reactions[emoji].points
                 one = 1
             else:
-                cooldown_manager.start_cooldown(guild_id, user_id, author_id, event)
-                cooldown_manager.end_cooldown(guild_id, user_id, author_id, opposite_event)
-
                 points = -guilds[guild_id].reactions[emoji].points
                 one = -1
 
