@@ -17,6 +17,8 @@ from logging_aura import LoggingManager
 from timelines import *
 from config import HELP_TEXT, OWNER_ID
 
+# TODO: update README and add to top.gg
+
 # TODO: customisable leaderboard: all time / this week / this month
 # 1. maintain daily/hourly leaderboard snapshots: copy whole json file and name with timestamp
 # 2. keep for a month and then delete
@@ -99,15 +101,19 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
         The payload of the reaction event. Provided through the `on_raw_reaction_add` or `on_raw_reaction_remove` event.
     event: `ReactionEvent`
         The event type that triggered the reaction.'''
-    if payload.guild_id in guilds and payload.user_id != payload.message_author_id and not client.get_user(payload.message_author_id).bot:
+    if payload.guild_id in guilds and payload.user_id != payload.message_author_id:
         emoji = str(payload.emoji)
         guild_id = payload.guild_id
         author_id = payload.message_author_id
         user_id = payload.user_id
 
         if emoji in guilds[guild_id].reactions:
-            payload.message_author_id = (await client.get_channel(payload.channel_id).fetch_message(payload.message_id)).author.id
             # message_author_id is not in the payload on removal, so we need to fetch the message to get it
+            payload.message_author_id = (await client.get_channel(payload.channel_id).fetch_message(payload.message_id)).author.id
+
+            # check if user is bot
+            if client.get_user(payload.message_author_id).bot:
+                return
 
             if author_id not in guilds[guild_id].users:
                 # recipient must be created
@@ -116,7 +122,7 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
                 # giver must be created
                 guilds[guild_id].users[payload.user_id] = User()
 
-            # check temp banned
+            # check if temp banned
             if user_id in timelines_manager.temp_banned_users[guild_id]:
                 return
 
