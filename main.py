@@ -85,6 +85,9 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
 @client.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
     '''Event that is called when a reaction is removed from a message.'''
+    # message_author_id is not in the payload on removal, so we need to fetch the message to get it
+    payload.message_author_id = (await client.get_channel(payload.channel_id).fetch_message(payload.message_id)).author.id
+
     await parse_payload(payload, ReactionEvent.REMOVE)
 
 async def parse_payload(payload: discord.RawReactionActionEvent, event: ReactionEvent) -> None:
@@ -100,20 +103,13 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
         The payload of the reaction event. Provided through the `on_raw_reaction_add` or `on_raw_reaction_remove` event.
     event: `ReactionEvent`
         The event type that triggered the reaction.'''
-    if payload.guild_id in guilds and payload.user_id != payload.message_author_id:
+    if payload.guild_id in guilds and payload.user_id != payload.message_author_id and not client.get_user(payload.message_author_id).bot:
         emoji = str(payload.emoji)
         guild_id = payload.guild_id
         author_id = payload.message_author_id
         user_id = payload.user_id
 
         if emoji in guilds[guild_id].reactions:
-            # message_author_id is not in the payload on removal, so we need to fetch the message to get it
-            author_id = (await client.get_channel(payload.channel_id).fetch_message(payload.message_id)).author.id
-
-            # check if user is bot
-            if client.get_user(author_id).bot:
-                return
-
             if author_id not in guilds[guild_id].users:
                 # recipient must be created
                 guilds[guild_id].users[author_id] = User()
