@@ -21,7 +21,7 @@ class Functions:
         self.guilds = guilds
 
     # need to add pagination/multiple embeds
-    def get_leaderboard(self, guild_id: int, persistent=False) -> discord.Embed:
+    def get_leaderboard(self, guild_id: int, timeframe: str, persistent=False) -> discord.Embed:
         '''Get the leaderboard for a guild.
         
         Returns an embed with the leaderboard information.

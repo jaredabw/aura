@@ -43,7 +43,7 @@ class TasksManager:
                     if channel is not None:
                         try:
                             board_msg = await channel.fetch_message(guild.board_msg_id)
-                            await board_msg.edit(embed=self.funcs.get_leaderboard(guild_id, True))
+                            await board_msg.edit(embed=self.funcs.get_leaderboard(guild_id, "all", True))
                         except discord.NotFound:
                             pass
                         except discord.Forbidden:

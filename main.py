@@ -17,7 +17,7 @@ from logging_aura import LoggingManager
 from timelines import *
 from config import HELP_TEXT, OWNER_ID
 
-# TODO: update README and add to top.gg
+# TODO: add to top.gg
 
 # TODO: customisable leaderboard: all time / this week / this month
 # 1. maintain daily/hourly leaderboard snapshots: copy whole json file and name with timestamp
@@ -208,7 +208,7 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
         if channel is not None:
             guilds[guild_id].msgs_channel_id = channel.id
             guilds[guild_id].info_msg_id = (await channel.send(embed=funcs.get_emoji_list(guild_id, True))).id
-            guilds[guild_id].board_msg_id = (await channel.send(embed=funcs.get_leaderboard(guild_id, True))).id
+            guilds[guild_id].board_msg_id = (await channel.send(embed=funcs.get_leaderboard(guild_id, "all", True))).id
 
             update_time_and_save(guild_id, guilds)
             await interaction.response.send_message(f"Setup complete. Leaderboard will be displayed in {channel.mention} or run </leaderboard:1356179831288758387>. Next, add emojis to track using </emoji add:1356180634602700863> or remove the default emojis with </emoji remove:1356180634602700863>.")
@@ -235,7 +235,7 @@ async def update_channel(interaction: discord.Interaction, channel: discord.Text
     guilds[guild_id].msgs_channel_id = channel.id
     try:
         guilds[guild_id].info_msg_id = (await channel.send(embed=funcs.get_emoji_list(guild_id, True))).id
-        guilds[guild_id].board_msg_id = (await channel.send(embed=funcs.get_leaderboard(guild_id, True))).id
+        guilds[guild_id].board_msg_id = (await channel.send(embed=funcs.get_leaderboard(guild_id, "all", True))).id
     except discord.Forbidden:
         await interaction.response.send_message("I don't have permission to send messages in that channel. Please choose a different channel or update my permissions.")
         return
@@ -276,13 +276,18 @@ async def delete(interaction: discord.Interaction):
 
 @tree.command(name="leaderboard", description="Show the current leaderboard.")
 @app_commands.guild_only()
-async def leaderboard(interaction: discord.Interaction):
+@app_commands.describe(timeframe="Optional. The timeframe to show the leaderboard for. Defaults to all time.")
+async def leaderboard(interaction: discord.Interaction, timeframe: Literal["all", "week", "month"] = "all"):
     guild_id = interaction.guild.id
     if guild_id not in guilds:
         await interaction.response.send_message("Please run </setup:1356179831288758384> first.")
         return
 
-    await interaction.response.send_message(embed=funcs.get_leaderboard(guild_id))
+    if timeframe not in ["all", "week", "month"]:
+        await interaction.response.send_message("Invalid timeframe. Must be one of: `all`, `week`, `month`.")
+        return
+
+    await interaction.response.send_message(embed=funcs.get_leaderboard(guild_id, timeframe))
 
 @tree.command(name="logging", description="Enable or disable logging of aura changes.")
 @app_commands.guild_only()
