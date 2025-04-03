@@ -1,3 +1,5 @@
+'''Script to create the database for the Aura system.'''
+
 import sqlite3
 
 def create_db():

@@ -1,3 +1,5 @@
+'''Insert JSON data into SQLite database for Aura bot.'''
+
 import json
 import sqlite3
 import sys

@@ -1,3 +1,5 @@
+'''Contains the TimelinesManager class, which manages the rolling timelines for each guild and user.'''
+
 import discord
 import time
 import asyncio
