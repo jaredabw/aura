@@ -17,10 +17,6 @@ from logging_aura import LoggingManager
 from timelines import *
 from config import HELP_TEXT, OWNER_ID
 
-# TODO: if using SQLite, way to import from json and export to json
-
-# SQL injection protection
-
 # TODO: customisable leaderboard: all time / this week / this month
 # 1. maintain daily/hourly leaderboard snapshots: copy whole json file and name with timestamp
 # 2. keep for a month and then delete
@@ -88,8 +84,6 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
 @client.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
     '''Event that is called when a reaction is removed from a message.'''
-    payload.message_author_id = (await client.get_channel(payload.channel_id).fetch_message(payload.message_id)).author.id
-    # message_author_id is not in the payload on removal, so we need to fetch the message to get it
     await parse_payload(payload, ReactionEvent.REMOVE)
 
 async def parse_payload(payload: discord.RawReactionActionEvent, event: ReactionEvent) -> None:
@@ -112,6 +106,9 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
         user_id = payload.user_id
 
         if emoji in guilds[guild_id].reactions:
+            payload.message_author_id = (await client.get_channel(payload.channel_id).fetch_message(payload.message_id)).author.id
+            # message_author_id is not in the payload on removal, so we need to fetch the message to get it
+
             if author_id not in guilds[guild_id].users:
                 # recipient must be created
                 guilds[guild_id].users[author_id] = User()
@@ -205,6 +202,7 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
             await interaction.response.send_message(f"Setup complete. Leaderboard will be displayed in {channel.mention} or run </leaderboard:1356179831288758387>. Next, add emojis to track using </emoji add:1356180634602700863> or remove the default emojis with </emoji remove:1356180634602700863>.")
             return
         else:
+            update_time_and_save(guild_id, guilds)
             await interaction.response.send_message(f"Setup complete. Run </leaderboard:1356179831288758387> to display leaderboard and </emoji list:1356180634602700863> to see tracked emojis. Next, add emojis to track using </emoji add:1356180634602700863>.")
             return
     except discord.Forbidden:
