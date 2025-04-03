@@ -706,7 +706,7 @@ async def clear_leaderboard(interaction: discord.Interaction):
 
     update_time_and_save(guild_id, guilds)
     await funcs.update_info(guild_id)
-    tasks_manager.update_leaderboards(True)
+    await tasks_manager.update_leaderboards(True)
 
     os.remove("user_data.json")
 

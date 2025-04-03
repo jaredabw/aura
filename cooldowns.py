@@ -17,30 +17,11 @@ class CooldownManager:
     '''
     def __init__(self, guilds: dict[int, Guild]) -> None:
         '''Initialize the CooldownManager with specified cooldowns.'''
+        self.guilds = guilds
         self._cooldowns: defaultdict[tuple[int], UserCooldowns] = defaultdict(dict)
-        self._adding_cooldowns: dict[int, int] = {}
-        self._removing_cooldowns: dict[int, int] = {}
-
-        for guild_id, guild in guilds.items():
-            self._adding_cooldowns[guild_id] = guild.limits.adding_cooldown
-            self._removing_cooldowns[guild_id] = guild.limits.removing_cooldown
-
-    def edit_guild_cooldown_values(self, guild_id: int, adding_cooldown: int, removing_cooldown: int) -> None:
-        '''Edit the cooldown values for adding and removing reactions.
-        
-        Parameters
-        ----------
-        guild_id: `int`
-            The ID of the guild.
-        adding_cooldown: `int`
-            The new cooldown for adding reactions.
-        removing_cooldown: `int`
-            The new cooldown for removing reactions.'''
-        self._adding_cooldowns[guild_id] = adding_cooldown
-        self._removing_cooldowns[guild_id] = removing_cooldown
 
     def ensure_cooldown(self, guild_id: int, user_id: int, author_id: int) -> None:
-        '''Ensure a cooldown object exists for a guild-user-author group.
+        '''Ensure the guild's cooldowns exist in `_adding_cooldowns` and `_removing_cooldowns` and ensure a cooldown object exists for a guild-user-author group.
         
         Parameters
         ----------
@@ -107,6 +88,6 @@ class CooldownManager:
         self.ensure_cooldown(guild_id, user_id, author_id)
         # does not need to set it back to 0 because if the user isnt on cooldown anymore it makes no difference when checking: will still be true either way.
         if event.is_add:
-            return int(time.time()) - self._cooldowns[(guild_id, user_id, author_id)].add_cooldown_began >= self._adding_cooldowns[guild_id]
+            return int(time.time()) - self._cooldowns[(guild_id, user_id, author_id)].add_cooldown_began >= self.guilds[guild_id].limits.adding_cooldown
         else:
-            return int(time.time()) - self._cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began >= self._removing_cooldowns[guild_id]
+            return int(time.time()) - self._cooldowns[(guild_id, user_id, author_id)].remove_cooldown_began >= self.guilds[guild_id].limits.removing_cooldown
