@@ -22,12 +22,12 @@ for guild_id, guild_data in data["guilds"].items():
 
     for user_id, user_data in guild_data["users"].items():
         cursor.execute("""
-            INSERT OR REPLACE INTO users (user_id, guild_id, aura, aura_contribution, num_pos_given, num_pos_received,
+            INSERT OR REPLACE INTO users (guild_id, user_id, aura, aura_contribution, num_pos_given, num_pos_received,
             num_neg_given, num_neg_received, opted_in, giving_allowed, receiving_allowed)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            user_id,
             guild_id,
+            user_id,
             user_data["aura"],
             user_data["aura_contribution"],
             user_data["num_pos_given"],
