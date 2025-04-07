@@ -68,6 +68,7 @@ class TimelinesManager:
             The ID of the user to tempban.'''
         self.temp_banned_users[guild_id].append(user_id)
         await (await self.client.fetch_user(user_id)).send(f"<@{user_id}\nYou have been temporarily banned for {self.guilds[guild_id].limits.penalty} seconds from giving aura in {self.client.get_guild(guild_id).name} due to spamming reactions.")
+        print(f"Fetched user {user_id}. Reason: Temp ban direct message.")
         if self.guilds[guild_id].log_channel_id is not None:
             self.logging_manager.log_event(guild_id, user_id, user_id, LogEvent.SPAMMING)
 
