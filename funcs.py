@@ -264,7 +264,7 @@ class Functions:
             channel = self.client.get_channel(guild.msgs_channel_id)
             if channel is not None:
                 try:
-                    info_msg = await channel.fetch_message(guild.info_msg_id)
+                    info_msg = channel.get_partial_message(guild.info_msg_id)
                     await info_msg.edit(embed=self.get_emoji_list(guild_id, True))
                 except Exception:
                     pass
