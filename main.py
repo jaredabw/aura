@@ -18,14 +18,13 @@ from timelines import TimelinesManager
 from config import HELP_TEXT, OWNER_DM_CHANNEL_ID
 
 # TODO: remove reliance on members intent
-# new user_info dict cache
+# new user_info dict cache: {user_id: {id, avatar}} for now
 # new user_info table in db
 # in on_raw_reaction_add, add member's user info to cache and save differences to db
 # - include id, avatar
-# in get_leaderboard and get_user_aura, check if user is in cache, if not, fetch from discord and add to cache save diffs db
+# in get_leaderboard and get_user_aura, check if user is in cache, if not, fetch from discord (log this) and add to cache and save diffs to db
 
-# TODO: store message id -> author id in temp cache for 30 mins to populate message_author_id in on_raw_reaction_remove, if cant find then ignore removal
-# this will replace fetch_message
+# TODO: store message id -> author id in temp cache for 1hr to populate message_author_id in on_raw_reaction_remove, if cant find then fallback to client.fetch_message().author (log this)
 
 # TODO: add to top.gg
 
@@ -40,7 +39,7 @@ load_dotenv("token.env")
 TOKEN = os.getenv("TOKEN")
 
 intents = discord.Intents.default()
-intents.members = True # required for client.get_user() and client.fetch_message().author
+intents.members = True
 
 client = discord.Client(intents=intents)
 
