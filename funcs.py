@@ -266,7 +266,9 @@ class Functions:
                 try:
                     info_msg = channel.get_partial_message(guild.info_msg_id)
                     await info_msg.edit(embed=self.get_emoji_list(guild_id, True))
-                except Exception:
+                except discord.DiscordException:
+                    pass
+                except AttributeError:
                     pass
 
     async def check_user_permissions(self, interaction: discord.Interaction, required_permission: str):
