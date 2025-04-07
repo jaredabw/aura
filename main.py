@@ -15,7 +15,17 @@ from funcs import Functions
 from tasks import TasksManager
 from logging_aura import LoggingManager
 from timelines import TimelinesManager
-from config import HELP_TEXT, OWNER_ID
+from config import HELP_TEXT, OWNER_DM_CHANNEL_ID
+
+# TODO: remove reliance on members intent
+# new user_info dict cache
+# new user_info table in db
+# in on_raw_reaction_add, add member's user info to cache and save differences to db
+# - include id, avatar
+# in get_leaderboard and get_user_aura, check if user is in cache, if not, fetch from discord and add to cache save diffs db
+
+# TODO: store message id -> author id in temp cache for 30 mins to populate message_author_id in on_raw_reaction_remove, if cant find then ignore removal
+# this will replace fetch_message
 
 # TODO: add to top.gg
 
@@ -80,6 +90,8 @@ async def on_ready():
 @client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     '''Event that is called when a reaction is added to a message.'''
+    # add member's user info to cache
+
     await parse_payload(payload, ReactionEvent.ADD)
 
 @client.event
@@ -103,7 +115,6 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
         The payload of the reaction event. Provided through the `on_raw_reaction_add` or `on_raw_reaction_remove` event.
     event: `ReactionEvent`
         The event type that triggered the reaction.'''
-    #  and not bot
     if payload.guild_id in guilds and payload.user_id != payload.message_author_id:
         emoji = str(payload.emoji)
         guild_id = payload.guild_id
