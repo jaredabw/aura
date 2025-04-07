@@ -103,7 +103,8 @@ async def parse_payload(payload: discord.RawReactionActionEvent, event: Reaction
         The payload of the reaction event. Provided through the `on_raw_reaction_add` or `on_raw_reaction_remove` event.
     event: `ReactionEvent`
         The event type that triggered the reaction.'''
-    if payload.guild_id in guilds and payload.user_id != payload.message_author_id and not client.get_user(payload.message_author_id).bot:
+    #  and not bot
+    if payload.guild_id in guilds and payload.user_id != payload.message_author_id:
         emoji = str(payload.emoji)
         guild_id = payload.guild_id
         author_id = payload.message_author_id
@@ -275,7 +276,7 @@ async def leaderboard(interaction: discord.Interaction, timeframe: Literal["all"
     timeframe = timeframe.lower()
 
     if timeframe not in ["all", "week", "month"]:
-        await interaction.response.send_message("Invalid timeframe. Must be one of: `all`, `week`, `month`.")
+        await interaction.response.send_message("Invalid timeframe. Must be one of: `all`, `day`, `week`, `month`.")
         return
 
     await interaction.response.send_message(embed=funcs.get_leaderboard(guild_id, timeframe))

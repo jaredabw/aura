@@ -55,7 +55,8 @@ class Functions:
                 embed.set_footer(text=f"Updates every {secs}s.")
 
         embed.description = ""
-        suffix = " (Week Change)" if timeframe == "week" else " (Month Change)" if timeframe == "month" else ""
+        # suffix = " (Week Change)" if timeframe == "week" else " (Month Change)" if timeframe == "month" else ""
+        suffix = " (Day Change)" if timeframe == "day" else " (Week Change)" if timeframe == "week" else " (Month Change)" if timeframe == "month" else ""
         embed.set_author(name=f"🏆 {self.client.get_guild(guild_id).name} Aura Leaderboard{suffix}")
 
         now = datetime.datetime.now()
@@ -64,7 +65,7 @@ class Functions:
             leaderboard = sorted(self.guilds[guild_id].users.items(), key=lambda item: item[1].aura, reverse=True)
             leaderboard = [(user_id, user.aura) for user_id, user in leaderboard if user.opted_in]
 
-        elif timeframe in ["week", "month"]:
+        elif timeframe in ["day", "week", "month"]:
             conn = sqlite3.connect(DB)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
@@ -73,6 +74,8 @@ class Functions:
                 start_of_period = now - datetime.timedelta(days=7)
             elif timeframe == "month":
                 start_of_period = now - datetime.timedelta(days=30)
+            else:
+                start_of_period = now - datetime.timedelta(days=1)
 
             cursor.execute('''
                 SELECT user_id, aura, snapshot_time
