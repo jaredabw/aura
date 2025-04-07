@@ -255,7 +255,7 @@ async def delete(interaction: discord.Interaction):
     with open("deleted_data.json", "a") as f:
         f.write(data)
 
-    await (client.get_user(OWNER_ID)).send(f"Guild {guild_id} data was deleted. Data was as follows", file=discord.File("deleted_data.json"))
+    await (client.get_channel(OWNER_DM_CHANNEL_ID)).send(f"Guild {guild_id} data was deleted. Data was as follows", file=discord.File("deleted_data.json"))
     await interaction.channel.send("Data deleted. If this was a mistake, contact `@engiw` to restore data. Final data is attached.", file=discord.File("deleted_data.json"))
 
     await funcs.update_info(guild_id)

@@ -2,6 +2,7 @@ UPDATE_INTERVAL = 10 # how often to update the leaderboard
 LOGGING_INTERVAL = 10 # how often to send logs
 
 OWNER_ID = 355938178265251842
+OWNER_DM_CHANNEL_ID = 1356159596347129897
 
 DB = "aura_data.db" # database file name
 
