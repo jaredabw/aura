@@ -52,5 +52,5 @@ __**INFO:**__
   - These values are configurable at your discretion.
 - If you are getting the error "A specified channel ID is invalid" when trying to use /setup or /updatechannel, try running the command on PC.
 
-[Terms of Service]({TOS_URL}) | [Privacy Policy]({PRIVACY_URL})
+[Terms of Service]({TOS_URL}) • [Privacy Policy]({PRIVACY_URL})
 """
