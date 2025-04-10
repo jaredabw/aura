@@ -81,8 +81,9 @@ class Functions:
                 bot=user.bot,
             )
             self.user_info[user_id] = new_user
-
+            
             save_user_data(self.user_info)
+            return new_user
 
     # need to add pagination/multiple embeds
     async def get_leaderboard(
