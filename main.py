@@ -23,8 +23,6 @@ from views import ConfirmView
 
 # TODO: custom bot subclass, has guilds, user_info and conn attrs
 
-# TODO: add to top.gg
-
 # TODO: penalise and forgive: if penalised, gain half and lose double
 
 # TODO: add pagination to leaderboard and emoji list
