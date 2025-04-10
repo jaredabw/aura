@@ -49,7 +49,9 @@ class TasksManager:
                         try:
                             board_msg = channel.get_partial_message(guild.board_msg_id)
                             await board_msg.edit(
-                                embed=self.funcs.get_leaderboard(guild_id, "all", True)
+                                embed=await self.funcs.get_leaderboard(
+                                    guild_id, "all", True
+                                )
                             )
                         except discord.NotFound:
                             pass
