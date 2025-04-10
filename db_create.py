@@ -72,7 +72,7 @@ def create_db():
 
     cursor.execute(
         """
-        CREATE TABLE user_snapshots (
+        CREATE TABLE IF NOT EXISTS user_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             guild_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
@@ -86,6 +86,16 @@ def create_db():
             FOREIGN KEY (guild_id) REFERENCES guilds (id),
             FOREIGN KEY (guild_id, user_id) REFERENCES users (guild_id, user_id)
         )
+    """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_info (
+            user_id INTEGER PRIMARY KEY,
+            avatar_url TEXT,
+            bot INTEGER
+        )        
     """
     )
 

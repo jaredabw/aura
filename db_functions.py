@@ -224,3 +224,70 @@ def save_data(guilds: dict[int, Guild], db_filename=DB):
 
     conn.commit()
     conn.close()
+
+
+def load_user_data(db_filename=DB) -> dict[int, GlobalUser]:
+    """Load the user data from the SQLite database.
+
+    Parameters
+    ----------
+    db_filename: `str`, optional
+        The name of the database file to load the data from. Defaults to "aura_data.db".
+    """
+
+    try:
+        with open(db_filename, "r"):
+            pass
+    except FileNotFoundError:
+        create_db()
+        print(f"Database {db_filename} was not found, so it was created.")
+        return {}
+
+    conn = sqlite3.connect(db_filename)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM user_info")
+    user_rows = cursor.fetchall()
+    user_info = {}
+    for user_row in user_rows:
+        user_id = user_row[0]
+        avatar_url = user_row[1]
+        bot = bool(user_row[2])
+        user_info[user_id] = GlobalUser(user_id=user_id, avatar_url=avatar_url, bot=bot)
+
+    conn.close()
+    return user_info
+
+
+def save_user_data(user_info: dict[int, GlobalUser], db_filename=DB):
+    """Save the user info data to the SQLite database.
+
+    Parameters
+    ----------
+    user_info: `Dict[int, GlobalUser]`
+        A dictionary of user info, where the key is the user ID and the value is a `GlobalUser` object.
+    db_filename: `str`, optional
+        The name of the database file to save the data to. Defaults to "aura_data.db".
+    """
+
+    try:
+        with open(db_filename, "r"):
+            pass
+    except FileNotFoundError:
+        create_db()
+        print(f"Database {db_filename} was not found, so it was created.")
+
+    conn = sqlite3.connect(db_filename)
+    cursor = conn.cursor()
+
+    for user_id, user in user_info.items():
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO user_info (user_id, avatar_url, bot)
+            VALUES (?, ?, ?)
+        """,
+            (user_id, user.avatar_url, int(user.bot)),
+        )
+
+    conn.commit()
+    conn.close()

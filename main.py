@@ -8,8 +8,9 @@ from typing import Literal
 from dotenv import load_dotenv
 from emoji import is_emoji
 
-from models import *
-from db_functions import update_time_and_save, load_data
+from models import ReactionEvent, LogEvent, User, Guild, EmojiReaction, Limits
+
+from db_functions import update_time_and_save, load_data, load_user_data
 from cooldowns import CooldownManager
 from funcs import Functions
 from tasks import TasksManager
@@ -17,16 +18,12 @@ from logging_aura import LoggingManager
 from timelines import TimelinesManager
 from config import HELP_TEXT, OWNER_DM_CHANNEL_ID
 
-# TODO: remove reliance on members intent
-# new user_info dict cache: {user_id: {id, avatar}} for now
-# new user_info table in db
-# in on_raw_reaction_add, add member's user info to cache and save differences to db
-# - include id, avatar
-# in get_leaderboard and get_user_aura, check if user is in cache, if not, fetch from discord (log this) and add to cache and save diffs to db
-# print(f"Fetched user {user_id}. Reason: User missing in cache.")
-
 # TODO: store message id -> author id in temp cache for 1hr to populate message_author_id in on_raw_reaction_remove, if cant find then fallback to client.fetch_message().author (log this)
-# print(f"Fetched message {message_id}. Reason: Need message author id.")
+# print(f"Fetching message {message_id} from API. Reason: Need message author id.")
+
+# TODO: reuse db connection but create new cursors across bot
+
+# TODO: custom bot subclass, has guilds, user_info and conn attrs
 
 # TODO: add to top.gg
 
@@ -41,7 +38,6 @@ load_dotenv("token.env")
 TOKEN = os.getenv("TOKEN")
 
 intents = discord.Intents.default()
-intents.members = True
 
 client = discord.Client(intents=intents)
 
@@ -67,7 +63,9 @@ tree.add_command(clear_group)
 
 guilds = load_data()
 
-funcs = Functions(client, guilds)
+user_info = load_user_data()
+
+funcs = Functions(client, guilds, user_info)
 
 cooldown_manager = CooldownManager(guilds)
 logging_manager = LoggingManager(client, guilds)
@@ -107,8 +105,6 @@ async def on_ready():
 @client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     """Event that is called when a reaction is added to a message."""
-    # add member's user info to cache
-
     await parse_payload(payload, ReactionEvent.ADD)
 
 
@@ -145,6 +141,15 @@ async def parse_payload(
         user_id = payload.user_id
 
         if emoji in guilds[guild_id].reactions:
+            # after we have done the basic checks, record the user's info
+            funcs.update_user_info(payload.member)
+
+            # ignore bots
+            if (await funcs.get_user_info(user_id)).bot or (
+                await funcs.get_user_info(author_id)
+            ).bot:
+                return
+
             if author_id not in guilds[guild_id].users:
                 # recipient must be created
                 guilds[guild_id].users[author_id] = User()
@@ -256,7 +261,9 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
                 await channel.send(embed=funcs.get_emoji_list(guild_id, True))
             ).id
             guilds[guild_id].board_msg_id = (
-                await channel.send(embed=funcs.get_leaderboard(guild_id, "all", True))
+                await channel.send(
+                    embed=await funcs.get_leaderboard(guild_id, "all", True)
+                )
             ).id
 
             update_time_and_save(guild_id, guilds)
@@ -302,7 +309,7 @@ async def update_channel(
             await channel.send(embed=funcs.get_emoji_list(guild_id, True))
         ).id
         guilds[guild_id].board_msg_id = (
-            await channel.send(embed=funcs.get_leaderboard(guild_id, "all", True))
+            await channel.send(embed=await funcs.get_leaderboard(guild_id, "all", True))
         ).id
     except discord.Forbidden:
         await interaction.response.send_message(
@@ -385,7 +392,7 @@ async def leaderboard(
         return
 
     await interaction.response.send_message(
-        embed=funcs.get_leaderboard(guild_id, timeframe)
+        embed=await funcs.get_leaderboard(guild_id, timeframe)
     )
 
 
@@ -452,7 +459,7 @@ async def aura(interaction: discord.Interaction, user: discord.User = None):
         )
         return
     await interaction.response.send_message(
-        embed=funcs.get_user_aura(guild_id, user.id)
+        embed=await funcs.get_user_aura(guild_id, user.id)
     )
 
 

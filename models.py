@@ -68,6 +68,24 @@ class LogEvent(Enum):
 
 
 @dataclass
+class GlobalUser:
+    """Class that represents a user's global information.
+
+    Attributes
+    ----------
+    user_id: `int`
+        The ID of the user.
+    avatar_url: `str`
+        The URL of the user's avatar.
+    bot: `bool`
+        Whether the user is a bot or not."""
+
+    user_id: int = None
+    avatar_url: str = None
+    bot: bool = False
+
+
+@dataclass
 class User:
     """Class that represents a user in a guild.
 

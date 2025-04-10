@@ -1,5 +1,5 @@
-"""Aura Bot Functions Module
-This module contains the Functions class, which provides various utility functions for the Aura Bot.
+"""
+Contains the Functions class, which provides various utility functions for the Aura Bot.
 """
 
 import discord
@@ -8,10 +8,16 @@ import sqlite3
 
 from config import UPDATE_INTERVAL, DB
 from models import *
-
+from db_functions import save_user_data
 
 class Functions:
-    def __init__(self, client: discord.Client, guilds: dict[int, Guild]):
+
+    def __init__(
+        self,
+        client: discord.Client,
+        guilds: dict[int, Guild],
+        user_info: dict[int, GlobalUser],
+    ):
         """Initialise the Functions class with the Discord client and guilds.
 
         Parameters
@@ -20,13 +26,66 @@ class Functions:
             The Discord client instance.
         guilds: `dict[int, Guild]`
             A dictionary of guilds, where the key is the guild ID and the value is a `Guild` object.
+        user_info: `dict[int, GlobalUser]`
+            A dictionary of user information, where the key is the user ID and the value is a `GlobalUser` object.
         """
 
         self.client = client
         self.guilds = guilds
+        self.user_info = user_info
+
+    def update_user_info(self, user: discord.User) -> None:
+        """Update or create the user information for a given user.
+
+        Parameters
+        ----------
+        user: `discord.User`
+            The user object to update or create information for.
+        """
+        if user is None:
+            return
+
+        if self.user_info.get(user.id) is None:
+            self.user_info[user.id] = GlobalUser(
+                id=user.id,
+                avatar_url=user.avatar.url if user.avatar else None,
+                bot=user.bot,
+            )
+
+            save_user_data(self.user_info)
+        else:
+            prev_avatar = self.user_info[user.id].avatar_url
+            if prev_avatar != user.avatar.url:
+                self.user_info[user.id].avatar_url = user.avatar.url
+                save_user_data(self.user_info)
+
+    async def get_user_info(self, user_id: int) -> GlobalUser:
+        """Get the user information for a given user ID.
+
+        Parameters
+        ----------
+        user_id: `int`
+            The ID of the user to get information for.
+        """
+        if user_id in self.user_info:
+            return self.user_info[user_id]
+        else:
+            # fetch from discord
+            print(f"Fetching user {user_id} from API. Reason: User missing in cache.")
+            user = await self.client.fetch_user(user_id)
+            if user is None:
+                return None
+            new_user = GlobalUser(
+                user_id=user.id,
+                avatar_url=user.avatar.url if user.avatar else None,
+                bot=user.bot,
+            )
+            self.user_info[user_id] = new_user
+
+            save_user_data(self.user_info)
 
     # need to add pagination/multiple embeds
-    def get_leaderboard(
+    async def get_leaderboard(
         self, guild_id: int, timeframe: str, persistent=False
     ) -> discord.Embed:
         """Get the leaderboard for a guild.
@@ -170,7 +229,7 @@ class Functions:
             embed.description = "No leaderboard data available."
         else:
             iconurl = (
-                self.client.get_user(leaderboard[0][0]).avatar.url
+                (await self.get_user_info(leaderboard[0][0])).avatar_url
                 if len(leaderboard) > 0
                 else None
             )
@@ -274,7 +333,7 @@ class Functions:
             if lower <= aura < upper:
                 return tag
 
-    def get_user_aura(self, guild_id: int, user_id: int) -> discord.Embed:
+    async def get_user_aura(self, guild_id: int, user_id: int) -> discord.Embed:
         """Get the aura breakdown for a user.
 
         Parameters
@@ -294,7 +353,7 @@ class Functions:
         if user_id not in self.guilds[guild_id].users:
             return embed
         embed.set_author(name=f"Aura Breakdown")
-        embed.set_thumbnail(url=self.client.get_user(user_id).avatar.url)
+        embed.set_thumbnail(url=(await self.get_user_info(user_id)).avatar_url)
 
         user = self.guilds[guild_id].users[user_id]
 
