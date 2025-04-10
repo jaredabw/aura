@@ -1,12 +1,12 @@
-UPDATE_INTERVAL = 10 # how often to update the leaderboard
-LOGGING_INTERVAL = 10 # how often to send logs
+UPDATE_INTERVAL = 10  # how often to update the leaderboard
+LOGGING_INTERVAL = 10  # how often to send logs
 
 OWNER_ID = 355938178265251842
 OWNER_DM_CHANNEL_ID = 1356159596347129897
 
-DB = "aura_data.db" # database file name
+DB = "aura_data.db"  # database file name
 
-HELP_TEXT = '''Aura tracks emoji reactions and gives aura points to people based on the reactions they receive.
+HELP_TEXT = """Aura tracks emoji reactions and gives aura points to people based on the reactions they receive.
 
 __**SETUP:**__
 1. Run </setup:1356179831288758384>. If you want a live leaderboard, create a new channel and provide it.
@@ -47,4 +47,4 @@ __**INFO:**__
   - 10 second cooldown on giving aura (per server user recipient combination); ignored if a user removed their reaction, i.e. put the wrong reaction, removed it, and added the correct reaction.  
   - Temporary bans from giving aura for excessive reaction additions and/or removals in a short period of time.
   - These values are configurable at your discretion.
-- If you are getting the error "A specified channel ID is invalid" when trying to use /setup or /updatechannel, try running the command on PC.'''
+- If you are getting the error "A specified channel ID is invalid" when trying to use /setup or /updatechannel, try running the command on PC."""

@@ -1,14 +1,16 @@
-'''Script to create the database for the Aura system.'''
+"""Script to create the database for the Aura system."""
 
 import sqlite3
 
 from config import DB
 
+
 def create_db():
     conn = sqlite3.connect(DB)
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS guilds (
             id INTEGER PRIMARY KEY,
             info_msg_id INTEGER,
@@ -17,9 +19,11 @@ def create_db():
             log_channel_id INTEGER,
             last_update INTEGER
         )
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS users (
             guild_id INTEGER,
             user_id INTEGER,
@@ -35,9 +39,11 @@ def create_db():
             PRIMARY KEY (guild_id, user_id),
             FOREIGN KEY (guild_id) REFERENCES guilds(id)
         )
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS reactions (
             guild_id INTEGER,
             emoji TEXT,
@@ -45,9 +51,11 @@ def create_db():
             PRIMARY KEY (guild_id, emoji),
             FOREIGN KEY (guild_id) REFERENCES guilds(id)
         )
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS limits (
             guild_id INTEGER PRIMARY KEY,
             interval_long INTEGER,
@@ -59,9 +67,11 @@ def create_db():
             removing_cooldown INTEGER,
             FOREIGN KEY (guild_id) REFERENCES guilds(id)
         )
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE user_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             guild_id INTEGER NOT NULL,
@@ -76,10 +86,12 @@ def create_db():
             FOREIGN KEY (guild_id) REFERENCES guilds (id),
             FOREIGN KEY (guild_id, user_id) REFERENCES users (guild_id, user_id)
         )
-    """)
+    """
+    )
 
     conn.commit()
     conn.close()
+
 
 if __name__ == "__main__":
     create_db()

@@ -1,10 +1,11 @@
-'''Contains the data models for the aura system.'''
+"""Contains the data models for the aura system."""
 
 from dataclasses import dataclass, field
 from enum import Enum
 
+
 class ReactionEvent(Enum):
-    '''Enumeration that represents the type of reaction event: `ADD` or `REMOVE`.
+    """Enumeration that represents the type of reaction event: `ADD` or `REMOVE`.
 
     Members
     --------
@@ -23,7 +24,8 @@ class ReactionEvent(Enum):
         The past participle form of the event.
     is_add: `bool`
         Whether the event is an addition or removal of a reaction.
-    '''
+    """
+
     ADD = ("add", "adding", "added", True)
     REMOVE = ("remove", "removing", "removed", False)
 
@@ -36,9 +38,10 @@ class ReactionEvent(Enum):
     def __bool__(self):
         return self.is_add
 
+
 class LogEvent(Enum):
-    '''Enumeration that represents the type of log event.
-    
+    """Enumeration that represents the type of log event.
+
     Members
     --------
     MANUAL: `LogEvent`
@@ -49,7 +52,8 @@ class LogEvent(Enum):
         Represents a user being denied from giving or receiving aura.
     ALLOW_GIVING | ALLOW_RECEIVING | ALLOW_BOTH: `LogEvent`
         Represents a user being allowed to give or receive aura.
-    '''
+    """
+
     MANUAL = "manual"
     SPAMMING = "spamming"
     DENY_GIVING = "giving"
@@ -62,10 +66,11 @@ class LogEvent(Enum):
     def __str__(self):
         return self.value
 
+
 @dataclass
 class User:
-    '''Class that represents a user in a guild.
-    
+    """Class that represents a user in a guild.
+
     Attributes
     ----------
     aura: `int`
@@ -85,7 +90,8 @@ class User:
     giving_allowed: `bool`
         Whether the user is allowed to give aura. Defaults to `True`.
     receiving_allowed: `bool`
-        Whether the user is allowed to receive aura. Defaults to `True`.'''
+        Whether the user is allowed to receive aura. Defaults to `True`."""
+
     aura: int = 0
     aura_contribution: int = 0
     num_pos_given: int = 0
@@ -96,43 +102,48 @@ class User:
     giving_allowed: bool = True
     receiving_allowed: bool = True
 
+
 @dataclass
 class UserCooldowns:
-    '''Class that represents the cooldowns for a user in a guild.
-    
+    """Class that represents the cooldowns for a user in a guild.
+
     Attributes
     ----------
     add_cooldown_began: `int`
         The timestamp when the add cooldown began.
     remove_cooldown_began: `int`
-        The timestamp when the remove cooldown began.'''
+        The timestamp when the remove cooldown began."""
+
     add_cooldown_began: int = 0
     remove_cooldown_began: int = 0
 
+
 @dataclass
 class EmojiReaction:
-    '''Class that represents an emoji reaction in a guild.
-    
+    """Class that represents an emoji reaction in a guild.
+
     Attributes
     ----------
     points: `int`
-        The number of aura points the reaction gives or takes away.'''
+        The number of aura points the reaction gives or takes away."""
+
     points: int = 0
+
 
 @dataclass
 class Limits:
-    '''Class that represents the configured limits and cooldowns for a guild.
+    """Class that represents the configured limits and cooldowns for a guild.
 
     All time limits are in seconds.
 
-    Defaults to the following values:  
-    `interval_long` = 60  
-    `threshold_long` = 10  
-    `interval_short` = 15  
-    `threshold_short` = 5  
-    `penalty` = 300  
-    `adding_cooldown` = 10  
-    `removing_cooldown` = 10  
+    Defaults to the following values:
+    `interval_long` = 60
+    `threshold_long` = 10
+    `interval_short` = 15
+    `threshold_short` = 5
+    `penalty` = 300
+    `adding_cooldown` = 10
+    `removing_cooldown` = 10
 
     Attributes
     ----------
@@ -149,7 +160,8 @@ class Limits:
     adding_cooldown: `int`
         The cooldown for adding reactions.
     removing_cooldown: `int`
-        The cooldown for removing reactions.'''
+        The cooldown for removing reactions."""
+
     interval_long: int = 60
     threshold_long: int = 10
     interval_short: int = 15
@@ -158,10 +170,11 @@ class Limits:
     adding_cooldown: int = 10
     removing_cooldown: int = 10
 
+
 @dataclass
 class Guild:
-    '''Class that represents a guild.
-    
+    """Class that represents a guild.
+
     Attributes
     ----------
     users: `Dict[int, User]`
@@ -177,7 +190,8 @@ class Guild:
     log_channel_id: `int`
         The ID of the channel where aura changes are logged.
     last_update: `int`
-        The timestamp of the last update to the guild data.'''
+        The timestamp of the last update to the guild data."""
+
     users: dict[int, User] = field(default_factory=dict)
     reactions: dict[str, EmojiReaction] = field(default_factory=dict)
     info_msg_id: int = None
