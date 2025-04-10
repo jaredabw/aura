@@ -6,7 +6,10 @@ OWNER_DM_CHANNEL_ID = 1356159596347129897
 
 DB = "aura_data.db"  # database file name
 
-HELP_TEXT = """Aura tracks emoji reactions and gives aura points to people based on the reactions they receive.
+PRIVACY_URL = "https://engiw.github.io/aura-tos/privacypolicy"
+TOS_URL = "https://engiw.github.io/aura-tos/termsofservice"
+
+HELP_TEXT = f"""Aura tracks emoji reactions and gives aura points to people based on the reactions they receive.
 
 __**SETUP:**__
 1. Run </setup:1356179831288758384>. If you want a live leaderboard, create a new channel and provide it.
@@ -47,4 +50,7 @@ __**INFO:**__
   - 10 second cooldown on giving aura (per server user recipient combination); ignored if a user removed their reaction, i.e. put the wrong reaction, removed it, and added the correct reaction.  
   - Temporary bans from giving aura for excessive reaction additions and/or removals in a short period of time.
   - These values are configurable at your discretion.
-- If you are getting the error "A specified channel ID is invalid" when trying to use /setup or /updatechannel, try running the command on PC."""
+- If you are getting the error "A specified channel ID is invalid" when trying to use /setup or /updatechannel, try running the command on PC.
+
+[Terms of Service]({TOS_URL}) | [Privacy Policy]({PRIVACY_URL})
+"""
