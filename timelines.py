@@ -1,13 +1,16 @@
-"""Contains the TimelinesManager class, which manages the rolling timelines for each guild and user."""
+"""Contains the TimelinesManager class, which manages the rolling timelines for each guild and user. Also keeps track of message ids and authors for 1 hour."""
 
 import discord
 import time
 import asyncio
+import bisect
 
 from collections import defaultdict, deque
 
 from models import Guild, ReactionEvent, LogEvent
 from logging_aura import LoggingManager
+
+MESSAGE_EXPIRY = 3600  # 1 hour expiry for message IDs -> author IDs
 
 
 class TimelinesManager:
@@ -23,6 +26,8 @@ class TimelinesManager:
         self.rolling_add = defaultdict(deque)
         self.rolling_remove = defaultdict(deque)
         self.temp_banned_users = defaultdict(list)
+
+        self.recent_messages = deque()
 
     async def update_rolling_timelines(
         self, guild_id: int, user_id: int, event: ReactionEvent
@@ -100,3 +105,57 @@ class TimelinesManager:
         # start a timer to allow the user to give aura again after LIMIT_PENALTY seconds
         await asyncio.sleep(self.guilds[guild_id].limits.penalty)
         self.temp_banned_users[guild_id].remove(user_id)
+
+    def add_message_author_id(self, message_id: int, message_author_id: int) -> None:
+        """Add the author ID of a message to the rolling deque.
+
+        Parameters
+        ----------
+        message_id: `int`
+            The ID of the message.
+        message_author_id: `int`
+            The ID of the author of the message.
+        """
+        current_time = time.time()
+        self.recent_messages.append((current_time, message_id, message_author_id))
+
+        # remove expired messages from the deque
+        while (
+            self.recent_messages
+            and self.recent_messages[0][0] < current_time - MESSAGE_EXPIRY
+        ):
+            self.recent_messages.popleft()
+
+    async def get_message_author_id(self, channel_id: int, message_id: int) -> int:
+        """Get the author ID of a message in a channel.
+
+        Parameters
+        ----------
+        channel_id: `int`
+            The ID of the channel.
+        message_id: `int`
+            The ID of the message.
+
+        Returns
+        -------
+        int
+            The ID of the author of the message.
+        """
+        message_ids = [msg[1] for msg in self.recent_messages]
+
+        i = bisect.bisect_left(message_ids, message_id)
+
+        if i != len(message_ids) and self.recent_messages[i][1] == message_id:
+            return self.recent_messages[i][2]
+
+        # else fallback to API call
+        channel = self.client.get_channel(channel_id)
+        if channel is not None:
+            try:
+                print(
+                    f"Fetching message {message_id} from API. Reason: Need message author id."
+                )
+                msg = await channel.fetch_message(message_id)
+                return msg.author.id
+            except (discord.NotFound, discord.Forbidden):
+                return None

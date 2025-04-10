@@ -18,9 +18,6 @@ from logging_aura import LoggingManager
 from timelines import TimelinesManager
 from config import HELP_TEXT, OWNER_DM_CHANNEL_ID
 
-# TODO: store message id -> author id in temp cache for 1hr to populate message_author_id in on_raw_reaction_remove, if cant find then fallback to client.fetch_message().author (log this)
-# print(f"Fetching message {message_id} from API. Reason: Need message author id.")
-
 # TODO: reuse db connection but create new cursors across bot
 
 # TODO: custom bot subclass, has guilds, user_info and conn attrs
@@ -111,11 +108,6 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
 @client.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
     """Event that is called when a reaction is removed from a message."""
-    # message_author_id is not in the payload on removal, so we need to fetch the message to get it
-    payload.message_author_id = (
-        await client.get_channel(payload.channel_id).fetch_message(payload.message_id)
-    ).author.id
-
     await parse_payload(payload, ReactionEvent.REMOVE)
 
 
@@ -134,13 +126,25 @@ async def parse_payload(
         The payload of the reaction event. Provided through the `on_raw_reaction_add` or `on_raw_reaction_remove` event.
     event: `ReactionEvent`
         The event type that triggered the reaction."""
-    if payload.guild_id in guilds and payload.user_id != payload.message_author_id:
+    if payload.guild_id in guilds:
         emoji = str(payload.emoji)
         guild_id = payload.guild_id
-        author_id = payload.message_author_id
-        user_id = payload.user_id
 
         if emoji in guilds[guild_id].reactions:
+            if event == ReactionEvent.REMOVE:
+                author_id = timelines_manager.get_message_author_id(
+                    payload.channel_id, payload.message_id
+                )
+            else:
+                author_id = payload.message_author_id
+                timelines_manager.add_message_author_id(payload.message_id, author_id)
+
+            user_id = payload.user_id
+
+            # ignore self reactions
+            if user_id == author_id:
+                return
+
             # after we have done the basic checks, record the user's info
             funcs.update_user_info(payload.member)
 
