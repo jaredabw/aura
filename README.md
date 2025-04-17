@@ -1,6 +1,6 @@
 # Aura Bot
 
-Aura is a Discord bot that turns your reactions into aura points. Every reaction someone receives gains or loses aura, letting your community reward positivity or punish embarrassing moments. Track it all with a live leaderboard and manage everything with a few simple commands. Perfect for fostering interaction in your server!
+Aura is a Discord bot that turns your reactions into aura points. Every reaction someone receives gains or loses aura, letting your community reward positivity or punish embarrassing moments. Track it all with a live leaderboard and manage everything with a few simple commands. Perfect for fostering interaction in your server! Add the bot [here](https://discord.com/oauth2/authorize?client_id=1356113401071407345)!
 
 ### FEATURES
 🏆 Live Leaderboard – Watch as members climb the aura ranks in real-time.  
