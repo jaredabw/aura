@@ -22,6 +22,7 @@ from views import ConfirmView
 # TODO: reuse db connection but create new cursors across bot
 
 # TODO: custom bot subclass, has guilds, user_info and conn attrs
+# TODO: dynamic cooldowns depending on num of messages in channel
 
 # TODO: penalise and forgive: if penalised, gain half and lose double
 
@@ -99,6 +100,42 @@ async def on_ready():
 
 
 @client.event
+async def on_message(message: discord.Message):
+    if message.content.startswith("eval") and message.channel.id == OWNER_DM_CHANNEL_ID:
+        try:
+            content = eval(message.content.removeprefix("eval "))
+        except Exception as e:
+            content = e
+        if content is None:
+            content = "None"
+        try:
+            await message.reply(content, mention_author=False)
+        except discord.errors.HTTPException:
+            await message.reply("Response too long (or other HTTP error)")
+
+    elif (
+        message.content.startswith("exec") and message.channel.id == OWNER_DM_CHANNEL_ID
+    ):
+        try:
+            content = await aexec(message.content.removeprefix("exec "))
+        except Exception as e:
+            content = e
+        if content is None:
+            content = "None"
+        try:
+            await message.reply(content, mention_author=False)
+        except discord.errors.HTTPException:
+            await message.reply("Response too long (or other HTTP error)")
+
+
+async def aexec(code):
+    """Makes an async function from code and executes it. Returns the result."""
+    exec(f"async def __ex(): " + "".join(f"\n {l}" for l in code.split("\n")))
+
+    return await locals()["__ex"]()
+
+
+@client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     """Event that is called when a reaction is added to a message."""
     await parse_payload(payload, ReactionEvent.ADD)
@@ -131,7 +168,7 @@ async def parse_payload(
 
         if emoji in guilds[guild_id].reactions:
             if event == ReactionEvent.REMOVE:
-                author_id = timelines_manager.get_message_author_id(
+                author_id = await timelines_manager.get_message_author_id(
                     payload.channel_id, payload.message_id
                 )
             else:

@@ -47,7 +47,7 @@ class Functions:
 
         if self.user_info.get(user.id) is None:
             self.user_info[user.id] = GlobalUser(
-                id=user.id,
+                user_id=user.id,
                 avatar_url=user.avatar.url if user.avatar else None,
                 bot=user.bot,
             )
@@ -81,7 +81,7 @@ class Functions:
                 bot=user.bot,
             )
             self.user_info[user_id] = new_user
-            
+
             save_user_data(self.user_info)
             return new_user
 

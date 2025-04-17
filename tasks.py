@@ -63,7 +63,7 @@ class TasksManager:
     @tasks.loop(
         time=[datetime.time(hour=0, minute=0), datetime.time(hour=12, minute=0)]
     )
-    async def take_snapshots_and_cleanup():
+    async def take_snapshots_and_cleanup(self):
         now = datetime.datetime.now()
 
         conn = sqlite3.connect(DB)
