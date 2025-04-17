@@ -109,7 +109,7 @@ async def on_message(message: discord.Message):
         if content is None:
             content = "None"
         try:
-            await message.reply(content, mention_author=False)
+            await message.reply(f"```{content}```", mention_author=False)
         except discord.errors.HTTPException:
             await message.reply("Response too long (or other HTTP error)")
 
@@ -123,7 +123,7 @@ async def on_message(message: discord.Message):
         if content is None:
             content = "None"
         try:
-            await message.reply(content, mention_author=False)
+            await message.reply(f"```{content}```", mention_author=False)
         except discord.errors.HTTPException:
             await message.reply("Response too long (or other HTTP error)")
 
