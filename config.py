@@ -8,6 +8,7 @@ DB = "aura_data.db"  # database file name
 
 PRIVACY_URL = "https://engiw.github.io/aura-tos/privacypolicy"
 TOS_URL = "https://engiw.github.io/aura-tos/termsofservice"
+SUPPORT_SERVER = "https://discord.gg/gDYRDNZ6YZ"
 
 HELP_TEXT = f"""Aura tracks emoji reactions and gives aura points to people based on the reactions they receive.
 
@@ -52,5 +53,5 @@ __**INFO:**__
   - These values are configurable at your discretion.
 - If you are getting the error "A specified channel ID is invalid" when trying to use /setup or /updatechannel, try running the command on PC.
 
-[Terms of Service]({TOS_URL}) • [Privacy Policy]({PRIVACY_URL})
+[Support Server]({SUPPORT_SERVER}) • [Terms of Service]({TOS_URL}) • [Privacy Policy]({PRIVACY_URL})
 """

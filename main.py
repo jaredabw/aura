@@ -268,7 +268,6 @@ async def help_command(interaction: discord.Interaction):
     embed.description = HELP_TEXT.split("|")[0]
     embed2 = discord.Embed(color=0x74327A)
     embed2.description = HELP_TEXT.split("|")[1]
-    embed2.set_footer(text="If you have any questions, please contact @engiw.")
     await interaction.response.send_message(embed=embed, ephemeral=True)
     await interaction.followup.send(embed=embed2, ephemeral=True)
 
@@ -392,12 +391,12 @@ async def delete(interaction: discord.Interaction):
     with open("deleted_data.json", "a") as f:
         f.write(data)
 
-    await client.get_channel(OWNER_DM_CHANNEL_ID).send(
+    await (await client.fetch_channel(OWNER_DM_CHANNEL_ID)).send(
         f"Guild {guild_id} data was deleted. Data was as follows",
         file=discord.File("deleted_data.json"),
     )
     await interaction.channel.send(
-        "Data deleted. If this was a mistake, contact `@engiw` to restore data. Final data is attached.",
+        "Data deleted. If this was a mistake, join the support server to restore data. Final data is attached.",
         file=discord.File("deleted_data.json"),
     )
 
@@ -1012,7 +1011,7 @@ async def clear_emojis(interaction: discord.Interaction):
         f.write(data)
 
     await interaction.channel.send(
-        f"Cleared all emojis. If this was a mistake, contact `@engiw` to restore data. Final data is attached.",
+        f"Cleared all emojis. If this was a mistake, join the support server to restore data. Final data is attached.",
         file=discord.File("emojis_data.json"),
     )
     guilds[guild_id].reactions = {}
@@ -1053,7 +1052,7 @@ async def clear_leaderboard(interaction: discord.Interaction):
         f.write(data)
 
     await interaction.channel.send(
-        f"Cleared all user and aura data. If this was a mistake, contact `@engiw` to restore data. Final data is attached.",
+        f"Cleared all user and aura data. If this was a mistake, join the support server to restore data. Final data is attached.",
         file=discord.File("user_data.json"),
     )
     guilds[guild_id].users = {}
