@@ -45,16 +45,10 @@ class LoggingManager:
         url: `str`
             The URL of the message where the reaction was added or removed."""
         sign = ""
-        if event.is_add:
-            if points > 0:
-                sign = "+"
-            elif points < 0:
-                sign = "-"
-        else:
-            if points > 0:
-                sign = "-"
-            elif points < 0:
-                sign = "+"
+        if points > 0:
+            sign = "+"
+        elif points < 0:
+            sign = "-"
 
         connective = "to" if event.is_add else "from"
         log_message = f"<@{user_id}> [{event.past}]({url}) {emoji} {connective} <@{recipient_id}> ({sign}{abs(points)} points)"
