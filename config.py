@@ -13,8 +13,8 @@ SUPPORT_SERVER = "https://discord.gg/gDYRDNZ6YZ"
 HELP_TEXT = f"""Aura tracks emoji reactions and gives aura points to people based on the reactions they receive.
 
 __**SETUP:**__
-1. Run </setup:1356179831288758384>. If you want a live leaderboard, create a new channel and provide it.
-2. Run </logging:1356254831488139457> to set a channel for aura changes to be logged to. This is highly recommended, in the case of anyone spamming or being unfair. 
+1. Run </setup:1356179831288758384>. If you want a live leaderboard, create a new channel and provide it. This is highly recommended.
+2. Run </logging:1356254831488139457> to set a channel for aura changes to be logged to. This is also highly recommended, in the case of anyone spamming or being unfair. 
 3. Add your emojis with </emoji add:1356180634602700863>, and specify their aura points impact.
 4. Watch the leaderboard in the new channel, or run </leaderboard:1356179831288758387> to see it!
 
