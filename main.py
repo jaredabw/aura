@@ -388,7 +388,7 @@ async def delete(interaction: discord.Interaction):
         {str(guild_id): guilds[guild_id]}, default=lambda o: o.__dict__, indent=4
     )
 
-    with open("deleted_data.json", "a") as f:
+    with open("deleted_data.json", "w") as f:
         f.write(data)
 
     await (await client.fetch_channel(OWNER_DM_CHANNEL_ID)).send(
