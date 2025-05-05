@@ -56,7 +56,9 @@ class Functions:
         else:
             prev_avatar = self.user_info[user.id].avatar_url
             if prev_avatar != user.avatar.url:
-                self.user_info[user.id].avatar_url = user.avatar.url
+                self.user_info[user.id].avatar_url = (
+                    user.avatar.url if user.avatar else None
+                )
                 save_user_data(self.user_info)
 
     async def get_user_info(self, user_id: int) -> GlobalUser:
