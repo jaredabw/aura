@@ -16,7 +16,7 @@ from funcs import Functions
 from tasks import TasksManager
 from logging_aura import LoggingManager
 from timelines import TimelinesManager
-from config import HELP_TEXT, OWNER_DM_CHANNEL_ID
+from config import HELP_TEXT, OWNER_ID, LOG_CHANNEL_ID
 from views import ConfirmView
 
 # TODO: reuse db connection but create new cursors across bot
@@ -101,7 +101,7 @@ async def on_ready():
 
 @client.event
 async def on_message(message: discord.Message):
-    if message.content.startswith("eval") and message.channel.id == OWNER_DM_CHANNEL_ID:
+    if message.content.startswith("eval") and message.author.id == OWNER_ID:
         try:
             content = eval(message.content.removeprefix("eval "))
         except Exception as e:
@@ -113,9 +113,7 @@ async def on_message(message: discord.Message):
         except discord.errors.HTTPException:
             await message.reply("Response too long (or other HTTP error)")
 
-    elif (
-        message.content.startswith("exec") and message.channel.id == OWNER_DM_CHANNEL_ID
-    ):
+    elif message.content.startswith("exec") and message.author.id == OWNER_ID:
         try:
             content = await aexec(message.content.removeprefix("exec "))
         except Exception as e:
@@ -133,6 +131,20 @@ async def aexec(code):
     exec(f"async def __ex(): " + "".join(f"\n {l}" for l in code.split("\n")))
 
     return await locals()["__ex"]()
+
+
+@client.event
+async def on_guild_join(guild: discord.Guild):
+    await client.get_channel(LOG_CHANNEL_ID).send(
+        f"Joined guild: {guild.name} ({guild.id}) ({guild.member_count} members). Now in {len(client.guilds)} guilds."
+    )
+
+
+@client.event
+async def on_guild_remove(guild: discord.Guild):
+    await client.get_channel(LOG_CHANNEL_ID).send(
+        f"Left guild: {guild.name} ({guild.id}) ({guild.member_count} members). Now in {len(client.guilds)} guilds."
+    )
 
 
 @client.event
@@ -294,6 +306,10 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel =
             "💀": EmojiReaction(points=-1),
         }
 
+        await client.get_channel(LOG_CHANNEL_ID).send(
+            f"Setup guild: {interaction.guild.name} ({guild_id}) ({interaction.guild.member_count} members)."
+        )
+
         if channel is not None:
             guilds[guild_id].msgs_channel_id = channel.id
             guilds[guild_id].info_msg_id = (
@@ -391,8 +407,8 @@ async def delete(interaction: discord.Interaction):
     with open("deleted_data.json", "w") as f:
         f.write(data)
 
-    await (await client.fetch_channel(OWNER_DM_CHANNEL_ID)).send(
-        f"Guild {guild_id} data was deleted. Data was as follows",
+    await client.get_channel(LOG_CHANNEL_ID).send(
+        f"Deleted guild: {interaction.guild.name} ({guild_id}) ({interaction.guild.member_count} members). Data was as follows",
         file=discord.File("deleted_data.json"),
     )
     await interaction.channel.send(
