@@ -105,7 +105,7 @@ async def on_message(message: discord.Message):
         try:
             content = eval(message.content.removeprefix("eval "))
         except Exception as e:
-            content = e
+            content = e.__traceback__ if hasattr(e, "__traceback__") else e
         if content is None:
             content = "None"
         try:
@@ -119,7 +119,7 @@ async def on_message(message: discord.Message):
         try:
             content = await aexec(message.content.removeprefix("exec "))
         except Exception as e:
-            content = e
+            content = e.__traceback__ if hasattr(e, "__traceback__") else e
         if content is None:
             content = "None"
         try:
