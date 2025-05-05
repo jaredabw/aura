@@ -46,19 +46,22 @@ class TasksManager:
                 if guild.msgs_channel_id is not None:
                     channel = self.client.get_channel(guild.msgs_channel_id)
                     if channel is not None:
-                        try:
-                            board_msg = channel.get_partial_message(guild.board_msg_id)
-                            await board_msg.edit(
-                                embed=await self.funcs.get_leaderboard(
-                                    guild_id, "all", True
+                        if guild.board_msg_id is not None:
+                            try:
+                                board_msg = channel.get_partial_message(
+                                    guild.board_msg_id
                                 )
-                            )
-                        except discord.NotFound:
-                            pass
-                        except discord.Forbidden:
-                            print(
-                                f"Forbidden to send leaderboard to channel {guild.msgs_channel_id} in guild {guild_id}."
-                            )
+                                await board_msg.edit(
+                                    embed=await self.funcs.get_leaderboard(
+                                        guild_id, "all", True
+                                    )
+                                )
+                            except discord.NotFound:
+                                pass
+                            except discord.Forbidden:
+                                print(
+                                    f"Forbidden to send leaderboard to channel {guild.msgs_channel_id} in guild {guild_id}."
+                                )
 
     @tasks.loop(
         time=[datetime.time(hour=0, minute=0), datetime.time(hour=12, minute=0)]
