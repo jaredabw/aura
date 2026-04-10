@@ -239,7 +239,10 @@ class Functions:
             embed.set_thumbnail(url=iconurl)
 
             for i, (user_id, gain) in enumerate(leaderboard):
-                embed.description += f"{i+1}. **{gain}** | <@{user_id}>\n"
+                line = f"{i+1}. **{gain}** | <@{user_id}>\n"
+                if len(embed.description) + len(line) > 4096:
+                    break
+                embed.description += line
 
         return embed
 
