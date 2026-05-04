@@ -228,6 +228,8 @@ class Functions:
 
                 leaderboard.sort(key=lambda item: item[1], reverse=True)
 
+        leaderboard = leaderboard[:99]
+
         if len(leaderboard) == 0:
             embed.description = "No leaderboard data available."
         else:
