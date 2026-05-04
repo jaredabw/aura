@@ -62,6 +62,8 @@ guilds = load_data()
 
 user_info = load_user_data()
 
+_background_tasks: set = set()
+
 funcs = Functions(client, guilds, user_info)
 
 cooldown_manager = CooldownManager(guilds)
@@ -84,17 +86,26 @@ async def on_ready():
 
     if not tasks_manager.take_snapshots_and_cleanup.is_running():
         print("Starting daily snapshot and cleanup loop...")
-        tasks_manager.take_snapshots_and_cleanup.start()
+        _t = tasks_manager.take_snapshots_and_cleanup.start()
+        if _t is not None:
+            _background_tasks.add(_t)
+            _t.add_done_callback(_background_tasks.discard)
 
     if not tasks_manager.update_leaderboards.is_running():
         print("Starting leaderboard update loop...")
         await tasks_manager.update_leaderboards(skip=True)
-        tasks_manager.update_leaderboards.start()
+        _t = tasks_manager.update_leaderboards.start()
+        if _t is not None:
+            _background_tasks.add(_t)
+            _t.add_done_callback(_background_tasks.discard)
 
     if not logging_manager.send_batched_logs.is_running():
         print("Starting logging loop...")
         await logging_manager.send_batched_logs()
-        logging_manager.send_batched_logs.start()
+        _t = logging_manager.send_batched_logs.start()
+        if _t is not None:
+            _background_tasks.add(_t)
+            _t.add_done_callback(_background_tasks.discard)
 
     print(f"Logged in as {client.user}")
 
