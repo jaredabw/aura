@@ -1,0 +1,16 @@
+[project]
+name = "aura"
+version = "0.1.0"
+description = "A Discord bot that handles an 'aura' system for your server"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "discord-py>=2.7.1",
+    "emoji>=2.15.0",
+    "python-dotenv>=1.2.2",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.12",
+]
