@@ -1,0 +1,27 @@
+name: Deploy to VM
+
+on:
+    push:
+        branches:
+            - main
+
+    workflow_dispatch:
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Deploy via SSH
+              uses: appleboy/ssh-action@v1.2.5
+              with:
+                  host: ${{ secrets.DEPLOY_HOST }}
+                  port: ${{ secrets.DEPLOY_PORT }}
+                  username: ${{ secrets.DEPLOY_USER }}
+                  key: ${{ secrets.DEPLOY_SSH_KEY }}
+                  script: |
+                      set -euo pipefail
+                      cd /opt/aura/app
+                      git fetch origin main
+                      git reset --hard origin/main
+                      uv sync --frozen --no-dev
+                      sudo systemctl restart aura
